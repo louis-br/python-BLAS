@@ -1,9 +1,9 @@
-FROM python:3
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
-RUN bash ~/miniconda.sh -b -f -p /usr/local/
+FROM continuumio/miniconda3:4.11.0
+#RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+#RUN bash ~/miniconda.sh -b -f -p /usr/local/
 RUN conda init
 RUN conda update conda --yes
 #eval "$(/miniconda/bin/conda shell.bash hook)"
-RUN conda install numpy --yes
+RUN conda install scipy --yes
 RUN conda install ipykernel --yes
 #--update-deps --force-reinstall
