@@ -6,4 +6,6 @@ RUN conda update conda --yes
 #eval "$(/miniconda/bin/conda shell.bash hook)"
 RUN conda install scipy --yes
 RUN conda install ipykernel --yes
+RUN conda install matplotlib --yes
+RUN conda install pandas --yes
 #--update-deps --force-reinstall
