@@ -7,8 +7,8 @@
 	// Update the 'dockerComposeFile' list if you have more compose files or use different names.
 	// The .devcontainer/docker-compose.yml file contains any overrides you need/want to make.
 	"dockerComposeFile": [
-		"../docker-compose.yml",
-		"docker-compose.yml"
+		"docker-compose.yml",
+		"docker-compose.dev.yml"
 	],
 
 	// The 'service' property is the name of the service for the container that VS Code should
@@ -23,13 +23,13 @@
 	"settings": {},
 
 	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": ["ms-python.python"]
+	"extensions": ["ms-python.python", "ms-vsliveshare.vsliveshare"],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
 	// Uncomment the next line if you want start specific services in your Docker Compose config.
-	// "runServices": [],
+	//"runServices": ["mkl"],
 
 	// Uncomment the next line if you want to keep your containers running after VS Code shuts down.
 	// "shutdownAction": "none",
