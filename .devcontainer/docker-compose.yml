@@ -1,8 +1,5 @@
 name: BLAS
 services:
   miniconda:
-    image: scipy-blas
-    build: python
-#  mkl:
-#    image: intel-mkl
-#    build: c
+    image: miniconda-blas
+    build: miniconda
