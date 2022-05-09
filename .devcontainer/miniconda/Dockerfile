@@ -16,3 +16,5 @@ RUN groupadd user && \
     usermod -g user user && \
     echo "user:user" | chpasswd && \
     adduser user sudo
+USER user
+RUN conda init
