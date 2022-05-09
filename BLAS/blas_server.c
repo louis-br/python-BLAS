@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <linux/in.h>
 
 #include "mkl.h"
-
-//https://www.intel.com/content/www/us/en/develop/documentation/onemkl-developer-reference-c/top/appendix-d-code-examples/blas-code-examples.html
-//MKL_ROOT=/opt/intel/oneapi/mkl/2022.0.2/ gcc mkl.c -o mkl -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl -m64 -I"${MKLROOT}/include"
 
 int read_csv(char *filename, float *array, int length) {
     FILE *file = fopen(filename, "r");
@@ -65,88 +65,63 @@ void cgne(float *H, float *g, float *f, float *r, float *p) {
     CBLAS_LAYOUT    layout;
     CBLAS_TRANSPOSE trans;
     MKL_INT         nx, ny, len_x, len_y;*/
-    printf("1\n");
+    //printf("1\n");
     memcpy(r, g, 50816*sizeof(float));
-    printf("2\n");
+    //printf("2\n");
     //          Layout,        TransA,       M,    N,    alpha,  A, lda,  X, incX, beta, Y, incY
     cblas_sgemv(CblasRowMajor, CblasNoTrans, 50816, 3600, -1.0F, H, 3600, f, 1,    1.0F, r, 1);
-    printf("3\n");
+    //printf("3\n");
     cblas_sgemv(CblasRowMajor, CblasTrans,   50816, 3600, 1.0F,  H, 3600, r, 1,    0.0F, p, 1);
-    printf("4\n");
-    for (int i = 0; i < 20; i++) {
+    //printf("4\n");
+    for (int i = 0; i < 100; i++) {
         //                            N,     X, incX, Y, incY
         float rdot =       cblas_sdot(50816, r, 1,    r, 1);
-        printf("5\n");
+        //printf("5\n");
         float pdot =       cblas_sdot(3600, p, 1,    p, 1);
         float alpha = rdot/pdot;
-        printf("6 rdot: %f pdot: %f alpha:%f\n", rdot, pdot, alpha);
+        //printf("6 rdot: %f pdot: %f alpha:%f\n", rdot, pdot, alpha);
         //          N, alpha, X, incX, Y, incY
         cblas_saxpy(3600, alpha, p, 1, f, 1);
-        printf("7\n");
+        //printf("7\n");
         //          Layout,        TransA,       M,    N,    alpha,    A, lda,  X, incX, beta, Y, incY
         cblas_sgemv(CblasRowMajor, CblasNoTrans, 50816, 3600, -alpha,  H, 3600, p, 1,    1.0F, r, 1);
-        printf("8\n");
+        //printf("8\n");
         //                      N,     X, incX, Y, incY
         float beta = cblas_sdot(50816, r, 1,    r, 1)/rdot;
-        printf("9 beta: %f\n", beta);
+        //printf("9 beta: %f\n", beta);
         //          Layout,        TransA,     M,     N,    alpha, A, lda,  X, incX, beta, Y, incY
         cblas_sgemv(CblasRowMajor, CblasTrans, 50816, 3600, 1.0F,  H, 3600, r, 1,    beta, p, 1);
-        printf("10\n");
+        //printf("10\n");
     }
 }
 
 int main()
 {
-    MKL_INT         m, n, lda, incx, incy, i, j;
-    MKL_INT         rmaxa, cmaxa;
-    float           alpha;
-    float          *a, *x, *y;
-    CBLAS_LAYOUT    layout;
-    MKL_INT         len_x, len_y;
+    /*struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(3333);
 
-    m = 2;
-    n = 3;
-    lda = 5;
-    incx = 2;
-    incy = 1;
-    alpha = 0.5;
-                    layout = CblasRowMajor;
-
-    len_x = 10;
-    len_y = 10;
-    rmaxa = m + 1;
-    cmaxa = n;
-    a = (float *)calloc( rmaxa*cmaxa, sizeof(float) );
-    x = (float *)calloc( len_x, sizeof(float) );
-    y = (float *)calloc( len_y, sizeof(float) );
-    if( a == NULL || x == NULL || y == NULL ) {
-        printf( "\n Can't allocate memory for arrays\n");
-        return 1;
-    }
-    if( layout == CblasRowMajor )
-        lda=cmaxa;
-    else
-        lda=rmaxa;
-
-    for (i = 0; i < 10; i++) {
-        x[i] = 1.0;
-        y[i] = 1.0;
-    }
-    
-    for (i = 0; i < m; i++) {
-        for (j = 0; j < n; j++) {
-            a[i + j*lda] = j + 1;
-        }
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+        printf("Failed to create socket\n");
+        return -1;
     }
 
-    cblas_sger(layout, m, n, alpha, x, incx, y, incy, a, lda);
+    if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in) < 0) {
+        printf("Failed to bind socket\n");
+        return -2;
+    }
 
-    printf("%f", a[0]);
-    //PrintArrayS(&layout, FULLPRINT, GENERAL_MATRIX, &m, &n, a, &lda, "A");
+    if (listen(sock, 5) < 0) {
+        printf("Failed to listen\n");
+        return -3;
+    }
 
-    free(a);
-    free(x);
-    free(y);
+    while (1) {
+
+    }*/
+
 
     float *H = (float *)calloc(50816*3600, sizeof(float));
     float *g = (float *)calloc(50816, sizeof(float));
@@ -154,12 +129,12 @@ int main()
     float *r = (float *)calloc(50816, sizeof(float));
     float *p = (float *)calloc(3600, sizeof(float));
 
-    read_csv("../../data/G-1.csv", g, 50816);
+    read_csv("../data/G-1.csv", g, 50816);
     printf("Done reading csv: g\n");
     
-    read_csv("../../data/H-1.csv", H, 50816*3600);
+    read_csv("../data/H-1.csv", H, 50816*3600);
     printf("Done reading csv: H\n");
-    //printf("%e", H[(50300-1)*3600]);
+
     cgne(H, g, f, r, p);
 
     for (int i=0; i < 3600; i++) {
