@@ -23,7 +23,7 @@
 	"settings": {},
 
 	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": ["ms-python.python", "ms-vsliveshare.vsliveshare"],
+	"extensions": ["ms-python.python", "ms-vscode.cpptools", "ms-vsliveshare.vsliveshare"],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],

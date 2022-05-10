@@ -2,10 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <linux/in.h>
+#include <unistd.h>
 
 #include "mkl.h"
+
+typedef struct
+{
+	int sock;
+	struct sockaddr address;
+	int addr_len;
+} connection_t;
+
+float* H;
 
 int read_csv(char *filename, float *array, int length) {
     FILE *file = fopen(filename, "r");
@@ -57,7 +68,7 @@ int read_csv(char *filename, float *array, int length) {
     return fclose(file) + 1;
 }
 
-void cgne(float *H, float *g, float *f, float *r, float *p) {
+void cgne(float *H, float *f, float *r, float *p) {
     /*MKL_INT         m, n, lda, incx, incy;
     MKL_INT         rmaxa, cmaxa;
     float           alpha, beta;
@@ -66,7 +77,7 @@ void cgne(float *H, float *g, float *f, float *r, float *p) {
     CBLAS_TRANSPOSE trans;
     MKL_INT         nx, ny, len_x, len_y;*/
     //printf("1\n");
-    memcpy(r, g, 50816*sizeof(float));
+    //memcpy(r, g, 50816*sizeof(float));
     //printf("2\n");
     //          Layout,        TransA,       M,    N,    alpha,  A, lda,  X, incX, beta, Y, incY
     cblas_sgemv(CblasRowMajor, CblasNoTrans, 50816, 3600, -1.0F, H, 3600, f, 1,    1.0F, r, 1);
@@ -95,47 +106,107 @@ void cgne(float *H, float *g, float *f, float *r, float *p) {
     }
 }
 
+void *process(void* ptr) {
+    if (ptr == NULL) {
+        pthread_exit(0);
+    }
+
+    connection_t* connection = (connection_t *)ptr;
+
+    int size = 1;
+    //read(connection->sock, &size, sizeof(int));
+    printf("got size: %i\n", size);
+    if (size > 0) {
+        float *r = (float *)calloc(50816, sizeof(float));
+        float *f = (float *)calloc(3600, sizeof(float));
+        float *p = (float *)calloc(3600, sizeof(float));
+
+        int size = 50816*sizeof(float);
+        int offset = 0;
+
+        while (offset < size) {
+            printf("offset: %d\n", offset);
+            offset += read(connection->sock, ((void *)r + offset), size - offset);
+        }
+
+        printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
+
+        printf("CGNE begin\n");
+        cgne(H, f, r, p);
+        printf("CGNE end\n");
+
+        //printf("f[0] = %f\n", f[0]);
+
+        printf("wrote %i\n", write(connection->sock, f, 3600*sizeof(float)));
+
+        /*for (int i=0; i < 3600; i++) {
+            printf("%e", f[i]);
+            //printf("1");
+            if ((i + 1) % 60 == 0) {
+                printf("\n");
+            } else if (i != (3600 - 1)) {
+                printf(",");
+            }
+        }*/
+
+        free(f);
+        free(r);
+        free(p);
+    }
+
+    close(connection->sock);
+    free(connection);
+    pthread_exit(0);
+}
+
 int main()
 {
-    /*struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(3333);
-
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         printf("Failed to create socket\n");
         return -1;
     }
 
-    if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in) < 0) {
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(3333);
+    if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0) {
         printf("Failed to bind socket\n");
         return -2;
     }
 
-    if (listen(sock, 5) < 0) {
+    if (listen(sock, 60) < 0) {
         printf("Failed to listen\n");
         return -3;
     }
 
+    H = (float *)calloc(50816*3600, sizeof(float));
+
+    read_csv("../data/H-1.csv", H, 50816*3600);
+    printf("Done reading csv: H\n");
+
     while (1) {
+        connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
+        connection->sock = accept(sock, &connection->address, &connection->addr_len);
+        printf("got connection\n");
+        if (connection->sock <= 0) {
+            free(connection);
+        } else {
+	        pthread_t thread;
+            pthread_create(&thread, 0, process, (void *)connection);
+            pthread_detach(thread);
+        }
+    }
 
-    }*/
 
-
-    float *H = (float *)calloc(50816*3600, sizeof(float));
-    float *g = (float *)calloc(50816, sizeof(float));
-    float *f = (float *)calloc(3600, sizeof(float));
-    float *r = (float *)calloc(50816, sizeof(float));
-    float *p = (float *)calloc(3600, sizeof(float));
-
+    /*
     read_csv("../data/G-1.csv", g, 50816);
     printf("Done reading csv: g\n");
     
     read_csv("../data/H-1.csv", H, 50816*3600);
     printf("Done reading csv: H\n");
 
-    cgne(H, g, f, r, p);
 
     for (int i=0; i < 3600; i++) {
         printf("%e", f[i]);
@@ -151,7 +222,7 @@ int main()
     free(g);
     free(f);
     free(r);
-    free(p);
+    free(p);*/
     
     return 0;
 }
