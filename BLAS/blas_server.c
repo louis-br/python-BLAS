@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+//#include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <linux/in.h>
 #include <unistd.h>
 
+#include "omp.h"
 #include "mkl.h"
 
 typedef struct
@@ -88,8 +89,7 @@ void cgne(float *H, float *f, float *r, float *p) {
         //                            N,     X, incX, Y, incY
         float rdot =       cblas_sdot(50816, r, 1,    r, 1);
         //printf("5\n");
-        float pdot =       cblas_sdot(3600, p, 1,    p, 1);
-        float alpha = rdot/pdot;
+        float alpha = rdot/cblas_sdot(3600, p, 1,    p, 1);;
         //printf("6 rdot: %f pdot: %f alpha:%f\n", rdot, pdot, alpha);
         //          N, alpha, X, incX, Y, incY
         cblas_saxpy(3600, alpha, p, 1, f, 1);
@@ -108,7 +108,7 @@ void cgne(float *H, float *f, float *r, float *p) {
 
 void *process(void* ptr) {
     if (ptr == NULL) {
-        pthread_exit(0);
+        return NULL; //pthread_exit(0);
     }
 
     connection_t* connection = (connection_t *)ptr;
@@ -156,7 +156,7 @@ void *process(void* ptr) {
 
     close(connection->sock);
     free(connection);
-    pthread_exit(0);
+    //pthread_exit(0);
 }
 
 int main()
@@ -186,16 +186,24 @@ int main()
     read_csv("../data/H-1.csv", H, 50816*3600);
     printf("Done reading csv: H\n");
 
-    while (1) {
-        connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
-        connection->sock = accept(sock, &connection->address, &connection->addr_len);
-        printf("got connection\n");
-        if (connection->sock <= 0) {
-            free(connection);
-        } else {
-	        pthread_t thread;
-            pthread_create(&thread, 0, process, (void *)connection);
-            pthread_detach(thread);
+    #pragma omp parallel
+    {
+        #pragma omp single nowait
+        while (1) {
+            connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
+            connection->sock = accept(sock, &connection->address, &connection->addr_len);
+            printf("got connection\n");
+            if (connection->sock <= 0) {
+                free(connection);
+            } else {//single nowait
+                #pragma omp task untied
+                {
+                    process((void *)connection);
+                }
+                //pthread_t thread;
+                //pthread_create(&thread, 0, process, (void *)connection);
+                //pthread_detach(thread);
+            }
         }
     }
 
