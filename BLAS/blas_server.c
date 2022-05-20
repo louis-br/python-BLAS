@@ -89,7 +89,7 @@ void cgne(float *H, float *f, float *r, float *p) {
         //                            N,     X, incX, Y, incY
         float rdot =       cblas_sdot(50816, r, 1,    r, 1);
         //printf("5\n");
-        float alpha = rdot/cblas_sdot(3600, p, 1,    p, 1);;
+        float alpha = rdot/cblas_sdot(3600, p, 1,    p, 1);
         //printf("6 rdot: %f pdot: %f alpha:%f\n", rdot, pdot, alpha);
         //          N, alpha, X, incX, Y, incY
         cblas_saxpy(3600, alpha, p, 1, f, 1);
@@ -106,57 +106,109 @@ void cgne(float *H, float *f, float *r, float *p) {
     }
 }
 
-void *process(void* ptr) {
-    if (ptr == NULL) {
-        return NULL; //pthread_exit(0);
-    }
+void read_error(char *value) {
+    printf("Failed to read %s\n", value);
+}
 
-    connection_t* connection = (connection_t *)ptr;
+//setvbuf
+int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG) {
+    typedef struct {int size; int maxSize; char key[32]; char* value;} field_t;
+    field_t fields[] = {
+        {0,                      sizeof(char[32]),    "command",         (char *)command},
+        {sizeof(int),            sizeof(int),         "algorithmIndex",  (char *)algorithmIndex},
+        {50816*sizeof(float),    50816*sizeof(float), "arrayG",          (char *)arrayG}
+    };
 
-    int size = 1;
-    //read(connection->sock, &size, sizeof(int));
-    printf("got size: %i\n", size);
-    if (size > 0) {
-        float *r = (float *)calloc(50816, sizeof(float));
-        float *f = (float *)calloc(3600, sizeof(float));
-        float *p = (float *)calloc(3600, sizeof(float));
+    int maxFields = sizeof(fields)/sizeof(field_t);
+    int fieldsReceived = 0;
+    char fieldName[32] = "";
 
-        int size = 50816*sizeof(float);
-        int offset = 0;
+    if (fread(&fieldsReceived, sizeof(int), 1, stream) != 1) { read_error("fieldsReceived"); return -1; }
+    for (int i = 0; i < fieldsReceived; i++) {
+        int fieldNameSize = 0;
+        int fieldSize = 0;
 
-        while (offset < size) {
-            printf("offset: %d\n", offset);
-            offset += read(connection->sock, ((void *)r + offset), size - offset);
+        if (fread(&fieldNameSize, sizeof(int), 1, stream) != 1) { read_error("fieldNameSize"); return -1; }
+        fieldNameSize = fieldNameSize < 32 ? fieldNameSize : 31;
+
+        if (fread(&fieldName, sizeof(char), fieldNameSize, stream) != fieldNameSize) { read_error("fieldName"); return -1; }
+        if (fread(&fieldSize, sizeof(int), 1, stream) != 1) { read_error("fieldSize"); return -1; }
+
+        int skip = 1;
+        for (int currentField = 0; currentField < maxFields; currentField++) {
+            if (strncmp(fieldName, fields[currentField].key, 32) == 0) {
+                printf("fieldsReceived: %i fieldName: %s fieldNameSize: %i fieldSize: %i currentField: %i\n", fieldsReceived, fieldName, fieldNameSize, fieldSize, currentField);
+                if (fields[currentField].value == NULL) {
+                    break;
+                }
+                if (fieldSize > fields[currentField].maxSize || fields[currentField].size != 0 && fields[currentField].size != fieldSize) {
+                    printf("Skipping field %s: wrong size\n", fieldName);
+                    break;
+                }
+                
+                if (fread(fields[currentField].value, fieldSize, 1, stream) != 1) { read_error(fieldName); return -1; }
+                skip = 0;
+                break;
+            }
         }
 
-        printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
-
-        printf("CGNE begin\n");
-        cgne(H, f, r, p);
-        printf("CGNE end\n");
-
-        //printf("f[0] = %f\n", f[0]);
-
-        printf("wrote %i\n", write(connection->sock, f, 3600*sizeof(float)));
-
-        /*for (int i=0; i < 3600; i++) {
-            printf("%e", f[i]);
-            //printf("1");
-            if ((i + 1) % 60 == 0) {
-                printf("\n");
-            } else if (i != (3600 - 1)) {
-                printf(",");
-            }
-        }*/
-
-        free(f);
-        free(r);
-        free(p);
+        if (skip) {
+            printf("Skipping not implemented\n");
+            return -1;
+            if (fseek(stream, fieldSize, SEEK_CUR) > 0) { read_error(fieldName); return -1; }
+        }
     }
+    return 0;
+}
+
+void process(connection_t *connection) {
+    FILE *readStream = NULL;
+    FILE *writeStream = NULL;
+    {
+        int writeSock = dup(connection->sock);
+        if (writeSock < 0) { printf("Failed to duplicate socket\n"); return; }
+        writeStream = fdopen(writeSock, "w");
+    }
+    readStream = fdopen(connection->sock, "r");
+    setvbuf(readStream, NULL, _IONBF, 0);
+
+    if (readStream == NULL || writeStream == NULL) { printf("Failed to create stream\n"); return; }
+
+    char command[32] = "";
+    int algorithmIndex = 0;
+    float *r = (float *)calloc(50816, sizeof(float));
+    
+    read_message(readStream, (char *)&command, &algorithmIndex, r);
+    printf("Command: %s algorithmIndex: %i\n", command, algorithmIndex);
+    
+    float *f = (float *)calloc(3600, sizeof(float));
+    float *p = (float *)calloc(3600, sizeof(float));
+
+    /*int size = 50816*sizeof(float);
+    int offset = 0;
+
+    while (offset < size) {
+        printf("offset: %d\n", offset);
+        offset += read(connection->sock, ((void *)r + offset), size - offset);
+    }*/
+
+    printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
+
+    printf("CGNE begin\n");
+    cgne(H, f, r, p);
+    printf("CGNE end\n");
+
+    printf("wrote %i\n", write(connection->sock, f, 3600*sizeof(float)));
+
+    free(f);
+    free(r);
+    free(p);
+
+    fclose(writeStream);
+    fclose(readStream);
 
     close(connection->sock);
     free(connection);
-    //pthread_exit(0);
 }
 
 int main()
@@ -198,7 +250,7 @@ int main()
             } else {//single nowait
                 #pragma omp task untied
                 {
-                    process((void *)connection);
+                    process(connection);
                 }
                 //pthread_t thread;
                 //pthread_create(&thread, 0, process, (void *)connection);
@@ -207,30 +259,7 @@ int main()
         }
     }
 
-
-    /*
-    read_csv("../data/G-1.csv", g, 50816);
-    printf("Done reading csv: g\n");
-    
-    read_csv("../data/H-1.csv", H, 50816*3600);
-    printf("Done reading csv: H\n");
-
-
-    for (int i=0; i < 3600; i++) {
-        printf("%e", f[i]);
-        //printf("1");
-        if ((i + 1) % 60 == 0) {
-            printf("\n");
-        } else if (i != (3600 - 1)) {
-            printf(",");
-        }
-    }
-
     free(H);
-    free(g);
-    free(f);
-    free(r);
-    free(p);*/
     
     return 0;
 }
