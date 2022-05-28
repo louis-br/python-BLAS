@@ -110,6 +110,21 @@ void read_error(char *value) {
     printf("Failed to read %s\n", value);
 }
 
+size_t discard(FILE *stream, int bytes) {
+    int bufferSize = bytes < 50816*sizeof(float) ? bytes : 50816*sizeof(float);
+    char *temp = (char*)malloc(bytes*sizeof(char));
+    size_t result = 0;
+    while (bytes >= bufferSize) {
+        printf("skip loop\n");
+        result = fread(temp, bufferSize, 1, stream);
+        if (result != 1) { free(temp); return result; }
+        bytes -= bufferSize;
+    }
+    result = fread(temp, bytes, 1, stream);
+    free(temp);
+    return result;
+}
+
 //setvbuf
 int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG) {
     typedef struct {int size; int maxSize; char key[32]; char* value;} field_t;
@@ -125,6 +140,7 @@ int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG
 
     if (fread(&fieldsReceived, sizeof(int), 1, stream) != 1) { read_error("fieldsReceived"); return -1; }
     for (int i = 0; i < fieldsReceived; i++) {
+        printf("field loop\n");
         int fieldNameSize = 0;
         int fieldSize = 0;
 
@@ -153,9 +169,8 @@ int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG
         }
 
         if (skip) {
-            printf("Skipping not implemented\n");
-            return -1;
-            if (fseek(stream, fieldSize, SEEK_CUR) > 0) { read_error(fieldName); return -1; }
+            printf("Skipping...\n");
+            if (discard(stream, fieldSize) != 1) { read_error(fieldName); return -1; }
         }
     }
     return 0;
