@@ -99,7 +99,7 @@ int main()
     read_csv("../data/H-1.csv", H, 50816*3600);
     printf("Done reading csv: H\n");
 
-    #pragma omp parallel
+    #pragma omp parallel default(none) shared(sock) shared(H)
     {
         #pragma omp single nowait
         while (1) {
