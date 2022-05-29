@@ -1,31 +1,11 @@
 #include "file.h"
 
-int read_csv(char *filename, float *array, int length) {
+int import_csv(char *filename, float *array, int arraySize) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         printf("Cannot open file: %s\n", filename);
         return 0;
     }
-
-    /*FILE *file;
-
-    fseek(disk, 0, SEEK_END);
-    long size = ftell(disk);
-    rewind(disk);
-    char *buffer = (char *)malloc(size*sizeof(char));
-    if (buffer != NULL) {
-        if (fread(buffer, sizeof(char), size, disk) != size) {
-            printf("Error copying to memory\n");
-            return 0;
-        }
-        file = fmemopen(buffer, size*sizeof(char), "r");
-        fclose(disk);
-    } else {
-        printf("Not enough memory for the whole file\n");
-        file = disk;
-    }
-
-    printf("Size: %ld\n", size);*/
 
     float f;
     int i = 0;
@@ -41,10 +21,58 @@ int read_csv(char *filename, float *array, int length) {
         }
         array[i] = f;
         i += c;
-        if (i > length) {
+        if (i > arraySize) {
             printf("Array too small\n");
             return 0;
         }
+    }
+
+    return fclose(file) + 1;
+}
+
+int import_bin(char *filename, float *array, int *arraySize) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Cannot open file: %s\n", filename);
+        return 0;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+
+    if (arraySize == NULL || array == NULL) {
+        array = (float *)malloc(size*sizeof(char));
+    }
+    else if (*arraySize < size*sizeof(char)) {
+        array = (float *)realloc(array, size*sizeof(char));
+    }
+
+    if (array == NULL) {
+        printf("Cannot allocate memory: %s\n", filename);
+        return 0;
+    }
+
+    *arraySize = size/sizeof(float);
+
+    if (fread(array, sizeof(char), size, file) != size) {
+        printf("Error copying to memory\n");
+        return 0;
+    }
+
+    return fclose(file) + 1;
+}
+
+int export_bin(char *filename, float *array, int arraySize) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("Cannot open file: %s\n", filename);
+        return 0;
+    }
+
+    if (fwrite(array, sizeof(float), arraySize, file) != arraySize) {
+        printf("Error writing to file: %s\n", filename);
+        return 0;
     }
 
     return fclose(file) + 1;

@@ -55,9 +55,11 @@ void process(connection_t *connection) {
 
     printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
 
+    double time = omp_get_wtime();
+
     printf("CGNE begin\n");
     cgne(H, 50816, 3600, f, r, p); //H, f, r, p);
-    printf("CGNE end\n");
+    printf("CGNE end: %lf s\n", omp_get_wtime() - time);
 
     printf("wrote %i\n", write(connection->sock, f, 3600*sizeof(float)));
 
@@ -94,10 +96,13 @@ int main()
         return -3;
     }
 
+    double time = omp_get_wtime();
+
     H = (float *)calloc(50816*3600, sizeof(float));
 
-    read_csv("../data/H-1.csv", H, 50816*3600);
-    printf("Done reading csv: H\n");
+    int Hsize = 50816*3600;
+    import_bin("../data/H-1.float", H, &Hsize); //import_csv("../data/H-1.csv", H, 50816*3600);
+    printf("Loaded H in %lf s\n", omp_get_wtime() - time);
 
     #pragma omp parallel default(none) shared(sock) shared(H)
     {
