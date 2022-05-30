@@ -10,6 +10,9 @@ RUN conda install scipy --yes
 RUN conda install ipykernel --yes
 RUN conda install matplotlib --yes
 RUN conda install pandas --yes
+RUN conda install -c conda-forge fastapi --yes
+RUN conda install -c conda-forge uvicorn --yes
+RUN conda install -c conda-forge python-multipart --yes
 #--update-deps --force-reinstall
 RUN groupadd user && \
     useradd -m -g user -s /bin/bash user && \
