@@ -12,15 +12,17 @@ int new_socket() {
     return sock;
 }
 
-int bind_socket(int sock, int port) {
-    if (sock < 0) { return sock; }
+int bind_socket(int sock, char *address, int port) {
+    if (sock < 0 || address == NULL) { return sock; }
     
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
 
-    int result = bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in));
+    inet_pton(AF_INET, address, &(addr.sin_addr));
+
+    int result = bind(sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_in));
     socket_error(result, "bind");
 
     return result >= 0 ? sock : -2;
@@ -35,9 +37,9 @@ int listen_socket(int sock) {
     return result >= 0 ? sock : -3;
 }
 
-int create_server() {
+int create_server(char *address, int port) {
     int sock = new_socket();
-    sock = bind_socket(sock, 3333);
+    sock = bind_socket(sock, address, port);
     sock = listen_socket(sock);
     
     return sock;

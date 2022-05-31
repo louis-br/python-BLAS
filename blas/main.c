@@ -10,9 +10,10 @@
 #include "omp.h"
 
 #include "algorithms/algorithms.h"
-#include "utils/file.h"
 #include "network/protocol.h"
 #include "network/server.h"
+#include "utils/options.h"
+#include "utils/file.h"
 
 float* H;
 
@@ -68,8 +69,15 @@ void process(connection_t *connection) {
     free(connection);
 }
 
-int main()
-{
+int main(int argc, char **argv) {
+
+    options_t options = {
+        .address = "127.0.0.1",
+        .port = 3145
+    };
+
+    set_options(argc, argv, &options);
+
     double time = omp_get_wtime();
 
     H = (float *)calloc(50816*3600, sizeof(float));
@@ -79,11 +87,13 @@ int main()
 
     printf("Loaded H in %lf s\n", omp_get_wtime() - time);
 
-    int sock = create_server();
+    int sock = create_server(options.address, options.port);
 
     if (sock < 0) {
         return sock;
     }
+
+    printf("Listening on %s:%i...\n", options.address, options.port);
 
     #pragma omp parallel default(none) shared(sock) shared(H)
     {

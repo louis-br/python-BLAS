@@ -34,7 +34,7 @@ async def process():
     field("arrayG", g.size)
 
     def connect_host(sock):
-        sock.connect(("localhost", 3333))
+        sock.connect(("localhost", 3145))
 
     def send(sock, g):
         sock.sendall(struct.pack("=i", 1))
