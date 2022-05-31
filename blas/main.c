@@ -9,10 +9,10 @@
 
 #include "omp.h"
 
-#include "algorithms.h"
-#include "file.h"
-#include "network.h"
-#include "server.h"
+#include "algorithms/algorithms.h"
+#include "utils/file.h"
+#include "network/protocol.h"
+#include "network/server.h"
 
 float* H;
 
