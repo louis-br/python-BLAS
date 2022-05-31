@@ -10,15 +10,9 @@
 #include "omp.h"
 
 #include "algorithms.h"
-#include "network.h"
 #include "file.h"
-
-typedef struct
-{
-	int sock;
-	struct sockaddr address;
-	int addr_len;
-} connection_t;
+#include "network.h"
+#include "server.h"
 
 float* H;
 
@@ -76,33 +70,20 @@ void process(connection_t *connection) {
 
 int main()
 {
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 0) {
-        printf("Failed to create socket\n");
-        return -1;
-    }
-
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(3333);
-    if (bind(sock, (struct sockaddr *)&address, sizeof(struct sockaddr_in)) < 0) {
-        printf("Failed to bind socket\n");
-        return -2;
-    }
-
-    if (listen(sock, 60) < 0) {
-        printf("Failed to listen\n");
-        return -3;
-    }
-
     double time = omp_get_wtime();
 
     H = (float *)calloc(50816*3600, sizeof(float));
-
     int Hsize = 50816*3600;
+
     import_bin("../data/H-1.float", H, &Hsize); //import_csv("../data/H-1.csv", H, 50816*3600);
+
     printf("Loaded H in %lf s\n", omp_get_wtime() - time);
+
+    int sock = create_server();
+
+    if (sock < 0) {
+        return sock;
+    }
 
     #pragma omp parallel default(none) shared(sock) shared(H)
     {
