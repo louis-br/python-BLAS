@@ -1,10 +1,15 @@
 #include "file.h"
 
-int main() {
-    float *H = (float *)calloc(50816*3600, sizeof(float));
+int main(int argc, char **argv) {
+    if (argc != 5) {
+        printf("More arguments needed\n");
+        return -1;
+    }
+    int size = atoi(argv[1])*atoi(argv[2]);
+    float *H = (float *)calloc(size, sizeof(float));
 
-    import_csv("../data/H-1.csv", H, 50816*3600);
-    export_bin("../data/H-1.float", H, 50816*3600);
+    import_csv(argv[3], H, size);
+    export_bin(argv[4], H, size);
     
     return 0;
 }

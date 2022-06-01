@@ -15,7 +15,9 @@
 #include "utils/options.h"
 #include "utils/file.h"
 
-float* H;
+float* H = NULL;
+int Hrows = 0;
+int Hcols = 0;
 
 void process(connection_t *connection) {
     FILE *readStream = NULL;
@@ -32,31 +34,23 @@ void process(connection_t *connection) {
 
     char command[32] = "";
     int algorithmIndex = 0;
-    float *r = (float *)calloc(50816, sizeof(float));
+    float *r = (float *)calloc(Hrows, sizeof(float));
     
-    read_message(readStream, command, &algorithmIndex, r);
+    read_message(readStream, command, &algorithmIndex, r, Hrows);
     printf("Command: %s algorithmIndex: %i\n", command, algorithmIndex);
     
-    float *f = (float *)calloc(3600, sizeof(float));
-    float *p = (float *)calloc(3600, sizeof(float));
-
-    /*int size = 50816*sizeof(float);
-    int offset = 0;
-
-    while (offset < size) {
-        printf("offset: %d\n", offset);
-        offset += read(connection->sock, ((void *)r + offset), size - offset);
-    }*/
+    float *f = (float *)calloc(Hcols, sizeof(float));
+    float *p = (float *)calloc(Hcols, sizeof(float));
 
     printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
 
     double time = omp_get_wtime();
 
     printf("CGNE begin\n");
-    cgne(H, 50816, 3600, f, r, p); //H, f, r, p);
+    cgne(H, Hrows, Hcols, f, r, p);
     printf("CGNE end: %lf s\n", omp_get_wtime() - time);
 
-    printf("wrote %i\n", write(connection->sock, f, 3600*sizeof(float)));
+    printf("wrote %i\n", write(connection->sock, f, Hcols*sizeof(float)));
 
     free(f);
     free(r);
@@ -71,29 +65,36 @@ void process(connection_t *connection) {
 
 int main(int argc, char **argv) {
 
-    options_t options = {
-        .address = "127.0.0.1",
-        .port = 3145
-    };
+    int sock = -1;
 
-    set_options(argc, argv, &options);
+    {
+        options_t options = {
+            .address = "127.0.0.1",
+            .port = 3145,
+            .file = "../data/H-1.float",
+            .Hrows = 50816,
+            .Hcols = 3600
+        };
 
-    double time = omp_get_wtime();
+        set_options(argc, argv, &options);
+        Hrows = options.Hrows;
+        Hcols = options.Hcols;
 
-    H = (float *)calloc(50816*3600, sizeof(float));
-    int Hsize = 50816*3600;
+        int Hsize = Hrows*Hcols;
+        H = (float *)calloc(Hsize, sizeof(float));
 
-    import_bin("../data/H-1.float", H, &Hsize); //import_csv("../data/H-1.csv", H, 50816*3600);
+        double time = omp_get_wtime();
+        import_bin(options.file, H, &Hsize);
+        printf("Loaded H in %lf s\n", omp_get_wtime() - time);
 
-    printf("Loaded H in %lf s\n", omp_get_wtime() - time);
+        sock = create_server(options.address, options.port);
 
-    int sock = create_server(options.address, options.port);
+        if (sock < 0) {
+            return sock;
+        }
 
-    if (sock < 0) {
-        return sock;
+        printf("Listening on %s:%i...\n", options.address, options.port);
     }
-
-    printf("Listening on %s:%i...\n", options.address, options.port);
 
     #pragma omp parallel default(none) shared(sock) shared(H)
     {

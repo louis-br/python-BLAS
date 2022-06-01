@@ -5,6 +5,8 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG);
+#define MAX_BUFFER_SIZE 50816
+
+int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG, int arrayGsize);
 
 #endif

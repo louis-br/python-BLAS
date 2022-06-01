@@ -5,7 +5,7 @@ void read_error(char *value) {
 }
 
 size_t discard(FILE *stream, int bytes) {
-    int bufferSize = bytes < 50816*sizeof(float) ? bytes : 50816*sizeof(float);
+    int bufferSize = bytes < MAX_BUFFER_SIZE*sizeof(float) ? bytes : MAX_BUFFER_SIZE*sizeof(float);
     char *temp = (char*)malloc(bytes*sizeof(char));
     size_t result = 0;
     while (bytes >= bufferSize) {
@@ -14,18 +14,20 @@ size_t discard(FILE *stream, int bytes) {
         if (result != 1) { free(temp); return result; }
         bytes -= bufferSize;
     }
-    result = fread(temp, bytes, 1, stream);
+    if (bytes > 0) {
+        result = fread(temp, bytes, 1, stream);
+    }
     free(temp);
     return result;
 }
 
 //setvbuf
-int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG) {
+int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG, int arrayGsize) {
     typedef struct {int size; int maxSize; char key[32]; char* value;} field_t;
     field_t fields[] = {
-        {0,                      sizeof(char[32]),    "command",         (char *)command},
-        {sizeof(int),            sizeof(int),         "algorithmIndex",  (char *)algorithmIndex},
-        {50816*sizeof(float),    50816*sizeof(float), "arrayG",          (char *)arrayG}
+        {0,                         sizeof(char[32]),           "command",          (char *)command        },
+        {sizeof(int),               sizeof(int),                "algorithmIndex",   (char *)algorithmIndex },
+        {arrayGsize*sizeof(float),  arrayGsize*sizeof(float),   "arrayG",           (char *)arrayG         }
     };
 
     int maxFields = sizeof(fields)/sizeof(field_t);
@@ -37,6 +39,7 @@ int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG
         printf("field loop\n");
         int fieldNameSize = 0;
         int fieldSize = 0;
+        memset(fieldName, 0, 32);
 
         if (fread(&fieldNameSize, sizeof(int), 1, stream) != 1) { read_error("fieldNameSize"); return -1; }
         fieldNameSize = fieldNameSize < 32 ? fieldNameSize : 31;
@@ -63,7 +66,7 @@ int read_message(FILE *stream, char *command, int *algorithmIndex, float *arrayG
         }
 
         if (skip) {
-            printf("Skipping...\n");
+            printf("Skipping %s...\n", fieldName);
             if (discard(stream, fieldSize) != 1) { read_error(fieldName); return -1; }
         }
     }
