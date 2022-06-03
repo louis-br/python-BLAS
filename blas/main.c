@@ -20,44 +20,37 @@ int Hrows = 0;
 int Hcols = 0;
 
 void process(connection_t *connection) {
-    FILE *readStream = NULL;
-    FILE *writeStream = NULL;
-    {
-        int writeSock = dup(connection->sock);
-        if (writeSock < 0) { printf("Failed to duplicate socket\n"); return; }
-        writeStream = fdopen(writeSock, "w");
-    }
-    readStream = fdopen(connection->sock, "r");
-    setvbuf(readStream, NULL, _IONBF, 0);
+    int tid = omp_get_thread_num();
+    
+    streams_t streams = {NULL, NULL};    
+    create_streams(connection->sock, &streams);
 
-    if (readStream == NULL || writeStream == NULL) { printf("Failed to create stream\n"); return; }
-
-    char command[32] = "";
-    int algorithmIndex = 0;
     float *r = (float *)calloc(Hrows, sizeof(float));
     
-    read_message(readStream, command, &algorithmIndex, r, Hrows);
-    printf("Command: %s algorithmIndex: %i\n", command, algorithmIndex);
+    input_message_t input = {
+        .command = "",
+        .algorithmType = 0,
+        .arrayG = r,
+        .arrayGsize = Hrows
+    };
+
+    read_message(&streams, &input);
+    printf("[%i] Command: %s algorithmIndex: %i\n", tid, input.command, input.algorithmType);
     
     float *f = (float *)calloc(Hcols, sizeof(float));
     float *p = (float *)calloc(Hcols, sizeof(float));
 
-    printf("r[10000]: %e r[10001]: %e\n", r[10000], r[10001]);
-
     double time = omp_get_wtime();
 
-    printf("CGNE begin\n");
+    printf("[%i] CGNE begin r[%i]: %e\n", tid, 10000, 10000);
     cgne(H, Hrows, Hcols, f, r, p);
-    printf("CGNE end: %lf s\n", omp_get_wtime() - time);
+    printf("[%i] CGNE end: %lf s\n", tid, omp_get_wtime() - time);
 
-    printf("wrote %i\n", write(connection->sock, f, Hcols*sizeof(float)));
+    printf("[%i] wrote %i\n", tid, write(connection->sock, f, Hcols*sizeof(float)));
 
-    free(f);
     free(r);
+    free(f);
     free(p);
-
-    fclose(writeStream);
-    fclose(readStream);
 
     close(connection->sock);
     free(connection);

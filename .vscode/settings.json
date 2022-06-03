@@ -5,7 +5,6 @@
         "unistd.h": "c",
         "server.h": "c",
         "algorithms.h": "c",
-        "protocol.h": "c",
-        "*.tcc": "c"
+        "protocol.h": "c"
     }
 }
