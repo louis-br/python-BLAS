@@ -42,8 +42,8 @@ void process(connection_t *connection) {
 
     printf("[%i] CGNR begin r[%i]: %e\n", tid, 10000, 10000);
     //cgne(H, Hrows, Hcols, f, r);
-    cgnr(H, Hrows, Hcols, f, r);
-    printf("[%i] CGNR end: %lf s\n", tid, omp_get_wtime() - time);
+    int iterations = cgnr(1000, 1e-5, H, Hrows, Hcols, f, r);
+    printf("[%i] CGNR end: iterations %i: %lf s\n", tid, iterations, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,

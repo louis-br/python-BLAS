@@ -19,7 +19,7 @@ typedef struct
 typedef struct
 {
 	char command[32];
-    int algorithmType;
+    char algorithmType;
     float* arrayG;
 	int arrayGsize;
 } input_message_t;
