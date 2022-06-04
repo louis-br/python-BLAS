@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <linux/in.h>
@@ -38,13 +37,13 @@ void process(connection_t *connection) {
     printf("[%i] Command: %s algorithmIndex: %i\n", tid, input.command, input.algorithmType);
     
     float *f = (float *)calloc(Hcols, sizeof(float));
-    float *p = (float *)calloc(Hcols, sizeof(float));
 
     double time = omp_get_wtime();
 
-    printf("[%i] CGNE begin r[%i]: %e\n", tid, 10000, 10000);
-    cgne(H, Hrows, Hcols, f, r, p);
-    printf("[%i] CGNE end: %lf s\n", tid, omp_get_wtime() - time);
+    printf("[%i] CGNR begin r[%i]: %e\n", tid, 10000, 10000);
+    //cgne(H, Hrows, Hcols, f, r);
+    cgnr(H, Hrows, Hcols, f, r);
+    printf("[%i] CGNR end: %lf s\n", tid, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,
@@ -57,8 +56,6 @@ void process(connection_t *connection) {
 
     free(r);
     free(f);
-    free(p);
-
     close(connection->sock);
     free(connection);
 }
@@ -102,17 +99,13 @@ int main(int argc, char **argv) {
         while (1) {
             connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
             connection->sock = accept(sock, &connection->address, &connection->addr_len);
-            printf("got connection\n");
             if (connection->sock <= 0) {
                 free(connection);
-            } else {//single nowait
+            } else {
                 #pragma omp task untied
                 {
                     process(connection);
                 }
-                //pthread_t thread;
-                //pthread_create(&thread, 0, process, (void *)connection);
-                //pthread_detach(thread);
             }
         }
     }

@@ -36,23 +36,6 @@ int create_streams(int sock, streams_t *streams) {
     return 0;
 }
 
-/*int read_bytes(int sock, void *buffer, int bufferSize, int n, int discard) {
-    char *b = (char *)buffer;
-    int bytesRead = 0;
-    int offset = 0;
-    while (n > bytesRead && bufferSize > offset) {
-        offset = discard ? 0 : bytesRead;
-        int left = n - bytesRead;
-        if (left > bufferSize) {
-            left = bufferSize;
-        }
-        int res = recv(sock, b + offset, left, discard ? MSG_TRUNC : 0);
-        if (res < 0) { return res; }
-        bytesRead += res;
-    }
-    return bytesRead;
-}*/
-
 int discard(FILE* read, int n) {
     printf("discard: %i\n", n);
     int bufferSize = n > MAX_BUFFER_SIZE ? MAX_BUFFER_SIZE : n;
@@ -129,7 +112,7 @@ int write_fields(FILE* write, field_t *fields, int maxFields) {
         if (fwrite(&keyLength, sizeof(int), 1, write) != 1) { write_error(key, "fieldNameSize"); return -1; }
         if (fwrite(key, keyLength, 1, write) != 1) { write_error(key, "fieldName"); return -1; }
         if (fwrite(&(fields[i].size), sizeof(int), 1, write) != 1) { write_error(key, "fieldSize"); return -1; }
-        printf("writing %s: %i bytes\n", key, fields[i].size);
+        //printf("writing %s: %i bytes\n", key, fields[i].size);
         if (fwrite(fields[i].value, fields[i].size, 1, write) != 1) { write_error(key, "value"); return -1; }
     }
 }
