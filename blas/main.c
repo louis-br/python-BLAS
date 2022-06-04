@@ -46,7 +46,14 @@ void process(connection_t *connection) {
     cgne(H, Hrows, Hcols, f, r, p);
     printf("[%i] CGNE end: %lf s\n", tid, omp_get_wtime() - time);
 
-    printf("[%i] wrote %i\n", tid, write(connection->sock, f, Hcols*sizeof(float)));
+    output_message_t output = {
+        .arrayF = f,
+        .arrayFsize = Hcols
+    };
+
+    write_message(&streams, &output);
+
+    //printf("[%i] wrote %i\n", tid, write(connection->sock, f, Hcols*sizeof(float)));
 
     free(r);
     free(f);

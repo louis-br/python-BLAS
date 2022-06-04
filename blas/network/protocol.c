@@ -26,6 +26,7 @@ int create_streams(int sock, streams_t *streams) {
     }
     readStream = fdopen(sock, "r");
     setvbuf(readStream, NULL, _IONBF, 0);
+    setvbuf(writeStream, NULL, _IONBF, 0);
 
     if (readStream == NULL || writeStream == NULL) { printf("Failed to create streams\n"); return -1; }
     
@@ -125,8 +126,10 @@ int write_fields(FILE* write, field_t *fields, int maxFields) {
     for (int i = 0; i < maxFields; i++) {
         char *key = fields[i].key;
         int keyLength = strlen(key);
-        if (fwrite(&keyLength, sizeof(int), 1, write) != 1) { write_error(fields[i].value, key); return -1; }
+        if (fwrite(&keyLength, sizeof(int), 1, write) != 1) { write_error(key, "fieldNameSize"); return -1; }
         if (fwrite(key, keyLength, 1, write) != 1) { write_error(key, "fieldName"); return -1; }
+        if (fwrite(&(fields[i].size), sizeof(int), 1, write) != 1) { write_error(key, "fieldSize"); return -1; }
+        printf("writing %s: %i bytes\n", key, fields[i].size);
         if (fwrite(fields[i].value, fields[i].size, 1, write) != 1) { write_error(key, "value"); return -1; }
     }
 }
