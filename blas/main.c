@@ -13,6 +13,7 @@
 #include "network/server.h"
 #include "utils/options.h"
 #include "utils/file.h"
+#include "utils/shutdown.h"
 
 float* H = NULL;
 int Hrows = 0;
@@ -83,15 +84,22 @@ int main(int argc, char **argv) {
         };
 
         set_options(argc, argv, &options);
+        setup_signals();
+
         Hrows = options.Hrows;
         Hcols = options.Hcols;
-
         int Hsize = Hrows*Hcols;
         H = (float *)calloc(Hsize, sizeof(float));
 
         double time = omp_get_wtime();
         import_bin(options.file, H, &Hsize);
         printf("Loaded H in %lf s\n", omp_get_wtime() - time);
+
+        if (Hsize != Hrows*Hcols) {
+            printf("wrong size for H: got %i, expected: %i\n", Hsize, Hrows*Hcols);
+            free(H);
+            exit(-1);
+        }
 
         sock = create_server(options.address, options.port);
 
@@ -102,23 +110,29 @@ int main(int argc, char **argv) {
         printf("Listening on %s:%i...\n", options.address, options.port);
     }
 
-    #pragma omp parallel default(none) shared(sock) shared(H)
+    #pragma omp parallel default(none) shared(sock) shared(H) shared(Hrows) shared(Hcols) shared(SERVER_RUNNING)
     {
         #pragma omp single nowait
-        while (1) {
-            connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
-            connection->sock = accept(sock, &connection->address, &connection->addr_len);
-            if (connection->sock <= 0) {
-                free(connection);
-            } else {
-                #pragma omp task untied
-                {
-                    process(connection);
+        {
+            int running = 1;
+            while (running) {
+                connection_t *connection = (connection_t*)malloc(sizeof(connection_t));
+                connection->sock = accept(sock, &connection->address, &connection->addr_len);
+                if (connection->sock <= 0) {
+                    free(connection);
+                } else {
+                    #pragma omp task untied
+                    {
+                        process(connection);
+                    }
                 }
+                #pragma omp atomic read
+                running = SERVER_RUNNING;
             }
         }
     }
 
+    close(sock);
     free(H);
     
     return 0;

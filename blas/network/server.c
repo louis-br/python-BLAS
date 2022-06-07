@@ -9,6 +9,14 @@ void socket_error(int sock, char *value) {
 int new_socket() {
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     socket_error(sock, "create");
+
+    struct timeval time = {
+        .tv_sec = 1,
+        .tv_usec = 0
+    };
+
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &time, sizeof(time));
+
     return sock;
 }
 

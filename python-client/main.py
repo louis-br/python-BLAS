@@ -35,7 +35,7 @@ def new_task(user, algorithm, file, N, S, maxIterations, minError):
 
 async def hello():
     async with websockets.connect("ws://localhost:8000") as websocket:
-        message = new_task("User", "CGNR", "../data/G-1.csv", 794, 64, 500, 1e-4) #"Hello world"
+        message = new_task("User", "CGNR", "../data/G-1.csv", 794, 64, 500, 1e-4)
         message = json.dumps(message)
         await websocket.send(message)
         message = await websocket.recv()

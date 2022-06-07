@@ -6,7 +6,7 @@
         "server.h": "c",
         "algorithms.h": "c",
         "protocol.h": "c",
-        "socket.h": "c"
+        "shutdown.h": "c"
     },
     "python.defaultInterpreterPath": "/opt/conda/bin/python"
 }
