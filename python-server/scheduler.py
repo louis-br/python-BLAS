@@ -1,8 +1,10 @@
 from multiprocessing import Queue
 
-def scheduler(pendingQueue: Queue, workerQueue: Queue):
+def scheduler(pendingQueue: Queue, nextQueue: Queue):
     while True:
         next = pendingQueue.get()
+
         alg = next['algorithm']
-        print(f'scheduling: {alg}')
-        workerQueue.put(next)
+        print(f'Scheduling: {alg}')
+        
+        nextQueue.put(next)

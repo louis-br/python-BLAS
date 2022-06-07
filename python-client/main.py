@@ -1,15 +1,21 @@
 import asyncio
 import websockets
+import base64
 import json
 import csv
 import math
-import matplotlib.pyplot as plt
-import numpy as np
+import os
+#import matplotlib.pyplot as plt
 
-def view(img):
-    #size = int(math.sqrt(img.size))
-    i = np.reshape(img, (60, 60)).transpose()
-    return plt.imsave('test.png', i, cmap="gray")
+#def view(img):
+#    #size = int(math.sqrt(img.size))
+#    i = np.reshape(img, (60, 60)).transpose()
+#    return plt.imsave('test.png', i, cmap="gray")
+
+def write_file(path, bytes):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as f:
+        f.write(bytes)
 
 def read_csv(filename):
     with open(filename, newline='') as f_input:
@@ -33,13 +39,15 @@ def new_task(user, algorithm, file, N, S, maxIterations, minError):
         'minError': minError
     }
 
-async def hello():
+async def main():
     async with websockets.connect("ws://localhost:8000") as websocket:
-        message = new_task("User", "CGNR", "../data/G-1.csv", 794, 64, 500, 1e-4)
-        message = json.dumps(message)
-        await websocket.send(message)
-        message = await websocket.recv()
+        for i in range(3):
+            message = new_task("User", "CGNR", "../data/G-1.csv", 794, 64, 500, 1e-4)
+            message = json.dumps(message)
+            await websocket.send(message)
+        for i in range(3):
+            message = await websocket.recv()
         message = json.loads(message)
-        view(message['arrayF'])
+        write_file(f'./images/{0}.png', base64.b64decode(message['image']))
 
-asyncio.run(hello())
+asyncio.run(main())
