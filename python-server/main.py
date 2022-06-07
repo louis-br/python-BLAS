@@ -14,8 +14,11 @@ PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
 DONE_QUEUE = Queue()
 
-def new_task(queue: Queue, dict: dict) -> dict:
-    queue.put({
+async def async_wait(f, *args):
+    return await asyncio.get_event_loop().run_in_executor(None, f, *args)
+
+async def new_task(queue: Queue, dict: dict) -> dict:
+    return await async_wait(queue.put, {
         'user': dict['user'],
         'algorithm': dict['algorithm'],
         'arrayG': dict['arrayG'],
@@ -28,9 +31,9 @@ async def listen(websocket, path):
     print(f'new {PENDING_QUEUE}, {DONE_QUEUE}')
     async for message in websocket:
         message = json.loads(message)
-        new_task(PENDING_QUEUE, message)
+        await new_task(PENDING_QUEUE, message)
         #print(message)
-        output = DONE_QUEUE.get()
+        output = await async_wait(DONE_QUEUE.get)
         message = json.dumps(output)
         await websocket.send(message)
 
