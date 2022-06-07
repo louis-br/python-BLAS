@@ -22,6 +22,8 @@ typedef struct
     char algorithmType;
     float* arrayG;
 	int arrayGsize;
+    int maxIterations;
+    float minError;
 } input_message_t;
 
 typedef struct

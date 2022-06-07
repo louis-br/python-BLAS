@@ -30,7 +30,9 @@ void process(connection_t *connection) {
         .command = "",
         .algorithmType = 0,
         .arrayG = r,
-        .arrayGsize = Hrows
+        .arrayGsize = Hrows,
+        .maxIterations = 1000,
+        .minError = 1e-10
     };
 
     read_message(&streams, &input);
@@ -42,8 +44,8 @@ void process(connection_t *connection) {
 
     printf("[%i] CGNR begin r[%i]: %e\n", tid, 10000, 10000);
     //cgne(H, Hrows, Hcols, f, r);
-    int iterations = cgnr(1000, 1e-5, H, Hrows, Hcols, f, r);
-    printf("[%i] CGNR end: iterations %i: %lf s\n", tid, iterations, omp_get_wtime() - time);
+    int iterations = cgnr(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
+    printf("[%i] CGNR end: iterations %i, error: %f: %lf s\n", tid, iterations, input.minError, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,

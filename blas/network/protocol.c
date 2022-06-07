@@ -98,7 +98,9 @@ int read_message(streams_t *streams, input_message_t *message) {
     field_t fields[] = {
         {0,                         sizeof(char[32]),           "command",          (char *)&message->command      },
         {sizeof(int),               sizeof(int),                "algorithmIndex",   (char *)&message->algorithmType},
-        {arrayGsize*sizeof(float),  arrayGsize*sizeof(float),   "arrayG",           (char *)message->arrayG        }
+        {arrayGsize*sizeof(float),  arrayGsize*sizeof(float),   "arrayG",           (char *)message->arrayG        },
+        {sizeof(int),               sizeof(int),                "maxIterations",    (char *)&message->maxIterations},
+        {sizeof(float),             sizeof(float),              "minError",         (char *)&message->minError     }
     };
 
     return read_fields(streams->read, fields, sizeof(fields)/sizeof(field_t));

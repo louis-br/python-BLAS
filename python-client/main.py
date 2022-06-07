@@ -40,7 +40,6 @@ async def hello():
         await websocket.send(message)
         message = await websocket.recv()
         message = json.loads(message)
-        print(message)
         view(message['arrayF'])
 
 asyncio.run(hello())
