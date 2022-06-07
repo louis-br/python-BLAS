@@ -42,10 +42,17 @@ void process(connection_t *connection) {
 
     double time = omp_get_wtime();
 
-    printf("[%i] CGNR begin r[%i]: %e\n", tid, 10000, 10000);
-    //cgne(H, Hrows, Hcols, f, r);
-    int iterations = cgnr(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
-    printf("[%i] CGNR end: iterations %i, error: %f: %lf s\n", tid, iterations, input.minError, omp_get_wtime() - time);
+    printf("[%i] %s begin r[%i]: %e\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, 10000);
+
+    int iterations = 0;
+    if (input.algorithmType == 1) {
+        iterations = cgnr(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
+    }
+    else {
+        iterations = cgne(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
+    }
+    
+    printf("[%i] %s end: iterations %i, error: %f: %lf s\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", iterations, input.minError, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,
