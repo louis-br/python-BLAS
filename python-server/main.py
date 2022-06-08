@@ -3,6 +3,9 @@ import asyncio
 import websockets
 import signal
 import json
+import re
+import hashlib
+
 
 from scheduler import scheduler
 from worker import worker
@@ -16,8 +19,18 @@ DONE_QUEUE = Queue()
 async def async_wait(f, *args):
     return await asyncio.get_event_loop().run_in_executor(None, f, *args)
 
-async def new_task(queue: Queue, dict: dict) -> dict:
+def get_id(message: str):
+    arrayG = dict['arrayG']
+    hash = hashlib.sha1(message.encode('ascii'))
+    return hash.hexdigest()
+
+async def new_task(queue: Queue, dict: dict, id: str) -> dict:
+    dict['user'] = re.sub(r'[\W_]+', '', dict['user']).lower()
+    dict['algorithm'] = dict['algorithm'] if dict['algorithm'].upper() == "CGNE" else "CGNR"
+    dict['maxIterations'] = int(dict['maxIterations'])
+    dict['minError'] = float(dict['minError'])
     return await async_wait(queue.put, {
+        'id': id,
         'user': dict['user'],
         'algorithm': dict['algorithm'],
         'arrayG': dict['arrayG'],
@@ -26,14 +39,14 @@ async def new_task(queue: Queue, dict: dict) -> dict:
     })
 
 async def process(websocket, message, pending: Queue, done: Queue):
+        id = get_id(message)
         message = json.loads(message)
-        await new_task(PENDING_QUEUE, message)
+        await new_task(PENDING_QUEUE, message, id)
 
         output = await async_wait(DONE_QUEUE.get)
         message = json.dumps(output)
         await websocket.send(message)
 
-#https://docs.python.org/3/library/asyncio-task.html#running-in-threads
 async def listen(websocket, path):
     async for message in websocket:
         asyncio.get_event_loop().create_task(process(websocket, message, PENDING_QUEUE, DONE_QUEUE))

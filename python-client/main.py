@@ -5,12 +5,6 @@ import json
 import csv
 import math
 import os
-#import matplotlib.pyplot as plt
-
-#def view(img):
-#    #size = int(math.sqrt(img.size))
-#    i = np.reshape(img, (60, 60)).transpose()
-#    return plt.imsave('test.png', i, cmap="gray")
 
 def write_file(path, bytes):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -48,6 +42,6 @@ async def main():
         for i in range(3):
             message = await websocket.recv()
         message = json.loads(message)
-        write_file(f'./images/{0}.png', base64.b64decode(message['image']))
+        write_file(f'./images/{message["id"]}.png', base64.b64decode(message['image']))
 
 asyncio.run(main())

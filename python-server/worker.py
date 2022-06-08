@@ -16,7 +16,7 @@ def pack_message(msg):
     arrayG = msg['arrayG']
     return {
         'algorithmIndex': struct.pack('=i', msg['algorithm'] == "CGNR"),
-        'arrayG': struct.pack('=%sf' % len(arrayG), *(arrayG)), #TODO
+        'arrayG': struct.pack('=%sf' % len(arrayG), *(arrayG)),
         'maxIterations': struct.pack('=i', msg['maxIterations']),
         'minError': struct.pack('=f', msg['minError'])
     }
@@ -28,9 +28,11 @@ def worker(workerQueue: Queue, nextQueue: Queue, i):
         if job == 'STOP':
             return
         elapsed = time.perf_counter()
+
         job['arrayF'] = connect(pack_message(job))
         job.pop('arrayG', None)
+        
         elapsed = time.perf_counter() - elapsed
         print(f"Worker {i} completed execution in {elapsed} seconds")
-        
+
         nextQueue.put(job)
