@@ -1,0 +1,15 @@
+name: base
+channels:
+  - intel
+  - conda-forge
+  - defaults
+dependencies:
+  - mkl-static=2022.1.0
+  - mkl-include=2022.1.0
+  - scipy
+  - ipykernel
+  - matplotlib
+  - pandas
+  - python-multipart
+  - websockets=10.3
+prefix: /opt/conda

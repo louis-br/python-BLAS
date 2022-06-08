@@ -1,5 +1,9 @@
-MKL_LIB = /opt/conda/pkgs/mkl-static-2022.1.0-intel_223/lib
-MKL_INCLUDE = /opt/conda/pkgs/mkl-include-2022.1.0-intel_223/include
+ROOT = /opt/conda
+MKL_LIB := ${ROOT}/lib
+MKL_INCLUDE = ${ROOT}/include
+
+#/opt/conda/pkgs/mkl-static-2022.1.0-intel_223/lib
+#/opt/conda/pkgs/mkl-include-2022.1.0-intel_223/include
 
 all:
 	gcc main.c algorithms/algorithms.c network/protocol.c network/server.c utils/file.c utils/options.c utils/shutdown.c -o out/blas \

@@ -43,7 +43,7 @@ void process(connection_t *connection) {
 
     double time = omp_get_wtime();
 
-    printf("[%i] %s begin r[%i]: %e\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, 10000);
+    printf("[%i] %s begin r[%i]: %e\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, r[10000]);
 
     int iterations = 0;
     if (input.algorithmType == 1) {
