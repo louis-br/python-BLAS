@@ -1,4 +1,4 @@
 [submodule "data"]
-	path = data
+	path = utils/data
 	url = https://github.com/louis-br/python-BLAS-data
 	branch = main

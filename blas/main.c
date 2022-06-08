@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
         options_t options = {
             .address = "127.0.0.1",
             .port = 3145,
-            .file = "../data/H-1.float",
+            .file = "../utils/data/H-1.float",
             .Hrows = 50816,
             .Hcols = 3600
         };
