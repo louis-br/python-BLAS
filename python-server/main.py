@@ -6,13 +6,13 @@ import json
 import re
 import hashlib
 
-
 from scheduler import scheduler
 from worker import worker
 from archiver import archiver
 
 PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
+WORKER_RETRY_QUEUE = Queue()
 ARCHIVE_QUEUE = Queue()
 DONE_QUEUE = Queue()
 
@@ -41,9 +41,9 @@ async def new_task(queue: Queue, dict: dict, id: str) -> dict:
 async def process(websocket, message, pending: Queue, done: Queue):
         id = get_id(message)
         message = json.loads(message)
-        await new_task(PENDING_QUEUE, message, id)
+        await new_task(pending, message, id)
 
-        output = await async_wait(DONE_QUEUE.get)
+        output = await async_wait(done.get)
         message = json.dumps(output)
         await websocket.send(message)
 
@@ -52,15 +52,15 @@ async def listen(websocket, path):
         asyncio.get_event_loop().create_task(process(websocket, message, PENDING_QUEUE, DONE_QUEUE))
 
 async def main():
-    schedulerProcess =  Process(target=scheduler, args=(PENDING_QUEUE, WORKER_QUEUE))
+    schedulerProcess =  Process(target=scheduler, args=(PENDING_QUEUE, WORKER_QUEUE), kwargs={'retryQueue': WORKER_RETRY_QUEUE})
     schedulerProcess.start()
 
     workers = []
     archivers = []
 
     for i in range(3):
-        workerProcess = Process(target=worker, args=(WORKER_QUEUE,  ARCHIVE_QUEUE, i))
-        archiverProcess = Process(target=archiver, args=(ARCHIVE_QUEUE,  DONE_QUEUE, i))
+        workerProcess =   Process(target=worker,   args=(WORKER_QUEUE, ARCHIVE_QUEUE), kwargs={'retryQueue': WORKER_RETRY_QUEUE, 'index': i})
+        archiverProcess = Process(target=archiver, args=(ARCHIVE_QUEUE,  DONE_QUEUE),  kwargs={'index': i})
         workerProcess.start()
         archiverProcess.start()
         workers.append(workerProcess)

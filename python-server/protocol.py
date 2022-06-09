@@ -1,7 +1,7 @@
 import socket
 import struct
 
-def write_message(sock: socket, message: dict[str, bytes]):
+def write_message(sock: socket.socket, message: dict[str, bytes]):
     maxFields = len(message)
     maxFields = struct.pack("=i", maxFields)
     sock.sendall(maxFields)
@@ -11,7 +11,7 @@ def write_message(sock: socket, message: dict[str, bytes]):
         sock.sendall(packed)
         sock.sendall(v)
 
-def recv_all(sock: socket, size: int):
+def recv_all(sock: socket.socket, size: int):
     b = b''
     bytesRead = 0
     offset = 0
@@ -23,12 +23,12 @@ def recv_all(sock: socket, size: int):
         bytesRead = len(b)
     return b
 
-def unpack_recv(sock: socket, format: str) -> tuple:
+def unpack_recv(sock: socket.socket, format: str) -> tuple:
     size = struct.calcsize(format)
     value = recv_all(sock, size)
     return struct.unpack(format, value)
 
-def read_message(sock: socket) -> dict[str, bytes]:
+def read_message(sock: socket.socket) -> dict[str, bytes]:
     message = {}
     maxFields = unpack_recv(sock, "=i")[0]
     for i in range(maxFields):

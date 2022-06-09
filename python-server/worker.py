@@ -4,9 +4,13 @@ import socket
 import protocol
 import struct
 
-def connect(msg):
+def connect(msg, port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect(("localhost", 3145))
+        try:
+            sock.connect(("localhost", port))
+        except socket.error as err:
+            print(f'socket error: {err}')
+            return None
         protocol.write_message(sock, msg)
         f = protocol.read_message(sock)['arrayF']
         f = struct.unpack('=%sf' % int(len(f)//4), f)
@@ -21,7 +25,7 @@ def pack_message(msg):
         'minError': struct.pack('=f', msg['minError'])
     }
 
-def worker(workerQueue: Queue, nextQueue: Queue, i):
+def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0):
     while True:
         job = workerQueue.get()
 
@@ -29,10 +33,17 @@ def worker(workerQueue: Queue, nextQueue: Queue, i):
             return
         elapsed = time.perf_counter()
 
-        job['arrayF'] = connect(pack_message(job))
+        port = job['port']
+        arrayF = connect(pack_message(job), port)
+        if arrayF is None:
+            if retryQueue is not None:
+                retryQueue.put(job)
+            continue
+        job['arrayF'] = arrayF
         job.pop('arrayG', None)
+        job.pop('port', None)
         
         elapsed = time.perf_counter() - elapsed
-        print(f"Worker {i} completed execution in {elapsed} seconds")
+        print(f"Worker {index} completed execution in {elapsed} seconds")
 
         nextQueue.put(job)

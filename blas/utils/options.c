@@ -41,7 +41,7 @@ int set_options(int argc, char **argv, options_t *options) {
                     -r, --rows      rows of the H matrix\n\
                     -c, --columns   columns of the H matrix\n\
                     -h, --help      prints this help\n", argv[0]);
-                exit(0);
+                exit(EXIT_SUCCESS);
                 break;
         }
     }

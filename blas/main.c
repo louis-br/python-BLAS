@@ -37,13 +37,13 @@ void process(connection_t *connection) {
     };
 
     read_message(&streams, &input);
-    printf("[%i] Command: %s algorithmIndex: %i\n", tid, input.command, input.algorithmType);
+    //printf("[%i] Command: %s algorithmIndex: %i\n", tid, input.command, input.algorithmType);
     
     float *f = (float *)calloc(Hcols, sizeof(float));
 
     double time = omp_get_wtime();
 
-    printf("[%i] %s begin r[%i]: %e\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, r[10000]);
+    printf("[%i] [%i] %s begin r[%i]: %e\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, r[10000]);
 
     int iterations = 0;
     if (input.algorithmType == 1) {
@@ -53,7 +53,7 @@ void process(connection_t *connection) {
         iterations = cgne(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
     }
     
-    printf("[%i] %s end: iterations %i, error: %f: %lf s\n", tid, input.algorithmType == 1 ? "CGNR" : "CGNE", iterations, input.minError, omp_get_wtime() - time);
+    printf("[%i] [%i] %s end: iterations %i, error: %f: %lf s\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE", iterations, input.minError, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,
@@ -86,6 +86,14 @@ int main(int argc, char **argv) {
         set_options(argc, argv, &options);
         setup_signals();
 
+        sock = create_server(options.address, options.port);
+
+        if (sock < 0) {
+            return sock;
+        }
+
+        printf("Listening on %s:%i...\n", options.address, options.port);
+
         Hrows = options.Hrows;
         Hcols = options.Hcols;
         int Hsize = Hrows*Hcols;
@@ -97,17 +105,10 @@ int main(int argc, char **argv) {
 
         if (Hsize != Hrows*Hcols) {
             printf("wrong size for H: got %i, expected: %i\n", Hsize, Hrows*Hcols);
+            close(sock);
             free(H);
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
-
-        sock = create_server(options.address, options.port);
-
-        if (sock < 0) {
-            return sock;
-        }
-
-        printf("Listening on %s:%i...\n", options.address, options.port);
     }
 
     #pragma omp parallel default(none) shared(sock) shared(H) shared(Hrows) shared(Hcols) shared(SERVER_RUNNING)
