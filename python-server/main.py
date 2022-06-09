@@ -6,9 +6,14 @@ import json
 import re
 import hashlib
 
+from utils.sigint import sigint_decorator
 from scheduler import scheduler
 from worker import worker
 from archiver import archiver
+
+scheduler = sigint_decorator(scheduler)
+worker = sigint_decorator(worker)
+archiver = sigint_decorator(archiver)
 
 PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
@@ -70,7 +75,7 @@ async def main():
     loop = asyncio.get_running_loop()
     stop = loop.create_future()
     #loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
-    #loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
+    loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
     async with websockets.serve(listen, "127.0.0.1", 8000):
         await stop

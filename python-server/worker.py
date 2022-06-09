@@ -1,7 +1,7 @@
 from multiprocessing import Queue
+from utils import protocol
 import time
 import socket
-import protocol
 import struct
 
 def connect(msg, port):
