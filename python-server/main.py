@@ -24,9 +24,12 @@ DONE_QUEUE = Queue()
 async def async_wait(f, *args):
     return await asyncio.get_event_loop().run_in_executor(None, f, *args)
 
-def get_id(message: str):
-    arrayG = dict['arrayG']
-    hash = hashlib.sha1(message.encode('ascii'))
+def get_id(message: dict):
+    hash = hashlib.sha1()
+    hash.update(json.dumps(message['arrayG']).encode('ascii'))
+    hash.update(json.dumps(message['algorithm']).encode('ascii'))
+    hash.update(json.dumps(message['maxIterations']).encode('ascii'))
+    hash.update(json.dumps(message['minError']).encode('ascii'))
     return hash.hexdigest()
 
 async def new_task(queue: Queue, dict: dict, id: str) -> dict:
@@ -44,8 +47,8 @@ async def new_task(queue: Queue, dict: dict, id: str) -> dict:
     })
 
 async def process(websocket, message, pending: Queue, done: Queue):
-        id = get_id(message)
         message = json.loads(message)
+        id = get_id(message)
         await new_task(pending, message, id)
 
         output = await async_wait(done.get)
