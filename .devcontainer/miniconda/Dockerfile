@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y build-essential sudo && apt-get clean &
 RUN conda install -c intel mkl-static=2022.1.0 mkl-include=2022.1.0 --yes
 RUN conda install scipy --yes
 RUN conda install ipykernel --yes
+RUN conda install -c conda-forge jupyterlab
 RUN conda install matplotlib --yes
 RUN conda install pandas --yes
 #RUN conda install -c conda-forge fastapi --yes
