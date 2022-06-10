@@ -103,6 +103,7 @@ async def receiver(websocket):
         message = await websocket.recv()
         if isinstance(message, bytes):
             write_file(f'./images/download.png', message)
+            continue
 
         message = json.loads(message)
         if 'id' in message:
