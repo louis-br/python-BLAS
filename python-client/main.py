@@ -13,7 +13,7 @@ def write_file(path, bytes):
 
 def read_csv(filename):
     with open(filename, newline='') as f_input:
-        return [float(row[0]) for row in csv.reader(f_input)] #list(map(float, row))
+        return [float(row[0]) for row in csv.reader(f_input)]
 
 def gain(g, N, S):
     for c in range(N):
@@ -35,13 +35,15 @@ def new_task(user, algorithm, file, N, S, maxIterations, minError):
 
 async def main():
     async with websockets.connect("ws://localhost:8000") as websocket:
-        for i in range(3):
-            message = new_task("user", "CGNR", "../utils/data/G-1.csv", 794, 64, 500, 1e-4)
-            message = json.dumps(message)
-            await websocket.send(message)
-        for i in range(3):
-            message = await websocket.recv()
-        message = json.loads(message)
-        write_file(f'./images/{message["id"]}.png', base64.b64decode(message['image']))
+        with open("input.json", encoding='utf8') as f:
+            input = json.load(f)
+            for task in input:
+                message = new_task(task['user'], task['algorithm'], task['file'], task['N'], task['S'], task['maxIterations'], task['minError'])
+                message = json.dumps(message)
+                await websocket.send(message)
+            for task in input:
+                message = await websocket.recv()
+                message = json.loads(message)
+                write_file(f'./images/{message["id"]}.png', base64.b64decode(message['image']))
 
 asyncio.run(main())
