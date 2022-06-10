@@ -2,10 +2,11 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 import asyncio
 import websockets
+import hashlib
 import signal
 import json
 import re
-import hashlib
+import os
 
 from utils.async_wait import async_wait
 from utils.sigint import sigint_decorator
@@ -22,6 +23,17 @@ WORKER_QUEUE = Queue()
 WORKER_RETRY_QUEUE = Queue()
 ARCHIVER_QUEUE = Queue()
 DONE_QUEUE = Queue()
+
+RESULTS_PATH="./results/"
+METADATA_PATH=f"{RESULTS_PATH}metadata/"
+IMAGES_PATH=f"{RESULTS_PATH}images/"
+
+async def send_user_files(websocket, user: str):
+    if not os.path.exists(os.path.join(METADATA_PATH, user)):
+        return
+    for filename in os.listdir(os.path.join(METADATA_PATH, user)):
+        with open(os.path.join(METADATA_PATH, user, filename), 'r') as f:
+            await websocket.send(await async_wait(f.read))
 
 def get_id(message: dict):
     hash = hashlib.sha1()
@@ -47,6 +59,10 @@ async def new_task(queue: Queue, dict: dict, id: str) -> dict:
 
 async def process(websocket, message, pending: Queue, done: Queue):
         message = json.loads(message)
+        if 'download' in message and 'id' in message:
+            with open(f"{os.path.join(IMAGES_PATH, message['user'], message['id'])}.png", 'rb') as f:
+                await websocket.send(f.read())
+            return
         id = get_id(message)
         await new_task(pending, message, id)
 
@@ -55,6 +71,8 @@ async def process(websocket, message, pending: Queue, done: Queue):
         await websocket.send(message)
 
 async def listen(websocket, path):
+    user = await websocket.recv()
+    await send_user_files(websocket, user)
     async for message in websocket:
         asyncio.get_event_loop().create_task(process(websocket, message, PENDING_QUEUE, DONE_QUEUE))
 
@@ -69,7 +87,7 @@ async def main():
 
     for i in range(3):
         workers.append(poolExecutor.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
-        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i))
+        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
     loop = asyncio.get_running_loop()
     stop = loop.create_future()
