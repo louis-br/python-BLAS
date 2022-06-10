@@ -1,5 +1,4 @@
-from asyncore import write
-from multiprocessing import Queue
+from queue import Queue
 import matplotlib.pyplot as plt
 import numpy as np
 import base64
@@ -22,6 +21,11 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
     while True:
         job = archiveQueue.get()
 
+        if job == "STOP":
+            nextQueue.put(job)
+            archiveQueue.task_done()
+            return
+
         elapsed = time.perf_counter()
 
         image = job.pop('arrayF', None)
@@ -41,3 +45,4 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
         
         elapsed = time.perf_counter() - elapsed
         print(f'Archiver {index} completed execution in {elapsed} seconds')
+        archiveQueue.task_done()

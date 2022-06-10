@@ -1,4 +1,5 @@
-from multiprocessing import Queue, Process
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
 import asyncio
 import websockets
 import signal
@@ -6,23 +7,21 @@ import json
 import re
 import hashlib
 
+from utils.async_wait import async_wait
 from utils.sigint import sigint_decorator
 from scheduler import scheduler
 from worker import worker
 from archiver import archiver
 
-scheduler = sigint_decorator(scheduler)
-worker = sigint_decorator(worker)
-archiver = sigint_decorator(archiver)
+#scheduler = sigint_decorator(scheduler)
+#worker = sigint_decorator(worker)
+#archiver = sigint_decorator(archiver)
 
 PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
 WORKER_RETRY_QUEUE = Queue()
-ARCHIVE_QUEUE = Queue()
+ARCHIVER_QUEUE = Queue()
 DONE_QUEUE = Queue()
-
-async def async_wait(f, *args):
-    return await asyncio.get_event_loop().run_in_executor(None, f, *args)
 
 def get_id(message: dict):
     hash = hashlib.sha1()
@@ -60,34 +59,38 @@ async def listen(websocket, path):
         asyncio.get_event_loop().create_task(process(websocket, message, PENDING_QUEUE, DONE_QUEUE))
 
 async def main():
-    schedulerProcess =  Process(target=scheduler, args=(PENDING_QUEUE, WORKER_QUEUE), kwargs={'retryQueue': WORKER_RETRY_QUEUE})
-    schedulerProcess.start()
+    poolExecutor = ThreadPoolExecutor(max_workers=7)
 
+    schedulers = [
+        poolExecutor.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)
+    ]
     workers = []
     archivers = []
 
     for i in range(3):
-        workerProcess =   Process(target=worker,   args=(WORKER_QUEUE, ARCHIVE_QUEUE), kwargs={'retryQueue': WORKER_RETRY_QUEUE, 'index': i})
-        archiverProcess = Process(target=archiver, args=(ARCHIVE_QUEUE,  DONE_QUEUE),  kwargs={'index': i})
-        workerProcess.start()
-        archiverProcess.start()
-        workers.append(workerProcess)
-        archivers.append(archiverProcess)
+        workers.append(poolExecutor.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
+        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i))
 
-    # Set the stop condition when receiving SIGTERM.
     loop = asyncio.get_running_loop()
     stop = loop.create_future()
-    #loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
+    loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
     loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
 
     async with websockets.serve(listen, "127.0.0.1", 8000):
+        print("Websockets listening: 127.0.0.1:8000")
         await stop
 
-    schedulerProcess.join()
-    for workerProcess in workers:
-        workerProcess.join()
-    for archiverProcess in archivers:
-        archiverProcess.join()
+    print("Shutdown")
+    PENDING_QUEUE.put("STOP")
+    for work in workers:
+        WORKER_QUEUE.put("STOP")
+    for taskList in (("scheduler", schedulers), ("worker", workers), ("archiver", archivers)):
+        for i in range(len(taskList[1])):
+            print(f"Waiting for {taskList[0]} {i}")
+            taskList[1][i].result()
+    print("Pool shutdown")
+    poolExecutor.shutdown()
+
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -1,4 +1,4 @@
-from multiprocessing import Queue
+from queue import Queue
 import queue
 import subprocess
 import socket
@@ -28,16 +28,24 @@ def scheduler(pendingQueue: Queue, nextQueue: Queue, retryQueue=None, blasExecut
     blasProcesses = {}
     while True:
         next = None
+        currentQueue = None
         if retryQueue is not None and not retryQueue.empty():
             try:
                 next = retryQueue.get_nowait()
+                currentQueue = retryQueue
             except queue.Empty:
                 pass
         if next is None:
             try:
                 next = pendingQueue.get(timeout=1)
+                currentQueue = pendingQueue
             except queue.Empty:
                 continue
+
+        if next == "STOP":
+            nextQueue.put(next)
+            currentQueue.task_done()
+            return
 
         size = len(next['arrayG'])
 
@@ -46,6 +54,7 @@ def scheduler(pendingQueue: Queue, nextQueue: Queue, retryQueue=None, blasExecut
                 model = MODELS[size]
             else:
                 print(f'No model available for size: {size}')
+                currentQueue.task_done()
                 continue
 
             port = get_free_port()
@@ -60,3 +69,4 @@ def scheduler(pendingQueue: Queue, nextQueue: Queue, retryQueue=None, blasExecut
         print(f"Scheduling: {next['algorithm']}")
         
         nextQueue.put(next)
+        currentQueue.task_done()

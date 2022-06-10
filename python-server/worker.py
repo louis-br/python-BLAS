@@ -1,4 +1,4 @@
-from multiprocessing import Queue
+from queue import Queue
 from utils import protocol
 import time
 import socket
@@ -29,8 +29,11 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
     while True:
         job = workerQueue.get()
 
-        if job == 'STOP':
+        if job == "STOP":
+            nextQueue.put(job)
+            workerQueue.task_done()
             return
+        
         elapsed = time.perf_counter()
 
         port = job['port']
@@ -38,6 +41,7 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
         if arrayF is None:
             if retryQueue is not None:
                 retryQueue.put(job)
+            workerQueue.task_done()
             continue
         job['arrayF'] = arrayF
         job.pop('arrayG', None)
@@ -47,3 +51,4 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
         print(f"Worker {index} completed execution in {elapsed} seconds")
 
         nextQueue.put(job)
+        workerQueue.task_done()
