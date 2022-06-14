@@ -2,10 +2,11 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 import asyncio
 import websockets
+import hashlib
 import signal
 import json
 import re
-import hashlib
+import os
 
 from utils.async_wait import async_wait
 from utils.sigint import sigint_decorator
@@ -22,6 +23,10 @@ WORKER_QUEUE = Queue()
 WORKER_RETRY_QUEUE = Queue()
 ARCHIVER_QUEUE = Queue()
 DONE_QUEUE = Queue()
+
+RESULTS_PATH="./results/"
+METADATA_PATH=f"{RESULTS_PATH}metadata/"
+IMAGES_PATH=f"{RESULTS_PATH}images/"
 
 def get_id(message: dict):
     hash = hashlib.sha1()
@@ -69,7 +74,7 @@ async def main():
 
     for i in range(3):
         workers.append(poolExecutor.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
-        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i))
+        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
     loop = asyncio.get_running_loop()
     stop = loop.create_future()

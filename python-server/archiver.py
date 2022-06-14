@@ -40,8 +40,8 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
 
         nextQueue.put(job)
 
-        write_file(f'{imagesPath}{copy["id"]}.png', file)
-        write_file(f'{dataPath}{copy["id"]}.json', json.dumps(copy), 'w')
+        write_file(f"{imagesPath}{copy['user']}/{copy['id']}.png", file)
+        write_file(f"{dataPath}{copy['user']}/{copy['id']}.json", json.dumps(copy), 'w')
         
         elapsed = time.perf_counter() - elapsed
         print(f'Archiver {index} completed execution in {elapsed} seconds')
