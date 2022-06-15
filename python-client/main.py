@@ -1,15 +1,9 @@
-import asyncio
-import websockets
-import base64
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import requests
 import json
 import csv
 import math
 import os
-
-def write_file(path, bytes):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'wb') as f:
-        f.write(bytes)
 
 def read_csv(filename):
     with open(filename, newline='') as f_input:
@@ -21,29 +15,56 @@ def gain(g, N, S):
             y = 100 + (1/20) * l * math.sqrt(l)
             g[l + c*S] = g[l + c*S] * y
 
-def new_task(user, algorithm, file, N, S, maxIterations, minError):
-    g = read_csv(file)
-    print(f'len: {len(g)}')
-    gain(g, N, S)
-    return {
-        'user': user,
-        'algorithm': algorithm,
+def new_task(task):
+    g = read_csv(task['file'])
+    gain(g, task['N'], task['S'])
+    message = {
+        'user': task['user'],
+        'algorithm': task['algorithm'],
         'arrayG': g,
-        'maxIterations': maxIterations,
-        'minError': minError
+        'maxIterations': task['maxIterations'],
+        'minError': task['minError']
     }
+    message = json.dumps(message)
+    print(requests.post("http://localhost:8000/tasks", data=message).content, task)
 
-async def main():
-    async with websockets.connect("ws://localhost:8000") as websocket:
+def download_file(url, path):
+    response = requests.get(url).content
+    print(response[:100])
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as f:
+        f.write(response)
+
+def main():
+    url = "http://localhost:8000/"
+    with ThreadPoolExecutor() as executor:
         with open("input.json", encoding='utf8') as f:
-            input = json.load(f)
-            for task in input:
-                message = new_task(task['user'], task['algorithm'], task['file'], task['N'], task['S'], task['maxIterations'], task['minError'])
-                message = json.dumps(message)
-                await websocket.send(message)
-            for task in input:
-                message = await websocket.recv()
-                message = json.loads(message)
-                write_file(f'./images/{message["id"]}.png', base64.b64decode(message['image']))
+            tasks = json.load(f)
+            for task in tasks:
+                executor.submit(new_task, task)
+    print("Done")
 
-asyncio.run(main())
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        inputFuture = None
+        while True:
+            tasks = requests.get(f"{url}tasks/user")
+            tasks = tasks.json()
+            if not 'data' in tasks:
+                continue
+            tasks = tasks['data']
+            for i in range(len(tasks)):
+                print(f"{i}:", tasks[i])
+            print("Select image: ")
+            if inputFuture is None or inputFuture.done():
+                inputFuture = executor.submit(input)
+            try:
+                index = int(inputFuture.result(timeout=1))
+                id = tasks[index]['id']
+                print(f"Downloading image: {id}.png")
+                download_file(f"{url}tasks/user/{id}.png", f"images/{id}.png")
+                download_file(f"{url}tasks/user/{id}.json", f"images/{id}.json")
+                print(f"Downloaded image: {id}.png")
+            except TimeoutError:
+                pass
+
+main()

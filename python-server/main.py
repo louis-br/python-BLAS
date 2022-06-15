@@ -1,22 +1,17 @@
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-import asyncio
-import websockets
+from fastapi import BackgroundTasks, HTTPException, FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, constr
+from enum import Enum
 import hashlib
-import signal
 import json
-import re
 import os
 
-from utils.async_wait import async_wait
-from utils.sigint import sigint_decorator
 from scheduler import scheduler
 from worker import worker
 from archiver import archiver
-
-#scheduler = sigint_decorator(scheduler)
-#worker = sigint_decorator(worker)
-#archiver = sigint_decorator(archiver)
 
 PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
@@ -24,78 +19,114 @@ WORKER_RETRY_QUEUE = Queue()
 ARCHIVER_QUEUE = Queue()
 DONE_QUEUE = Queue()
 
-RESULTS_PATH="./results/"
-METADATA_PATH=f"{RESULTS_PATH}metadata/"
-IMAGES_PATH=f"{RESULTS_PATH}images/"
+NUM_WORKERS = os.getenv("WORKERS", None)
+if NUM_WORKERS is None:
+    NUM_WORKERS = 10
+    print(f"\033[93m\nWORKERS environment variable not set, defaulting to: {NUM_WORKERS}\nPlease run with: WORKERS=10 uvicorn main:app\n\033[0m")
+else:
+    NUM_WORKERS = int(NUM_WORKERS)
 
-def get_id(message: dict):
-    hash = hashlib.sha1()
-    hash.update(json.dumps(message['arrayG']).encode('ascii'))
-    hash.update(json.dumps(message['algorithm']).encode('ascii'))
-    hash.update(json.dumps(message['maxIterations']).encode('ascii'))
-    hash.update(json.dumps(message['minError']).encode('ascii'))
-    return hash.hexdigest()
+WORKERS = {}
+THREAD_POOL = ThreadPoolExecutor(max_workers=NUM_WORKERS)
 
-async def new_task(queue: Queue, dict: dict, id: str) -> dict:
-    dict['user'] = re.sub(r'[\W_]+', '', dict['user']).lower()
-    dict['algorithm'] = dict['algorithm'] if dict['algorithm'].upper() == "CGNE" else "CGNR"
-    dict['maxIterations'] = int(dict['maxIterations'])
-    dict['minError'] = float(dict['minError'])
-    return await async_wait(queue.put, {
-        'id': id,
-        'user': dict['user'],
-        'algorithm': dict['algorithm'],
-        'arrayG': dict['arrayG'],
-        'maxIterations': dict['maxIterations'],
-        'minError': dict['minError']
-    })
+RESULTS_PATH = "./results/"
+METADATA_PATH = os.path.join(RESULTS_PATH, "metadata/")
+IMAGES_PATH = os.path.join(RESULTS_PATH, "images/")
 
-async def process(websocket, message, pending: Queue, done: Queue):
-        message = json.loads(message)
-        id = get_id(message)
-        await new_task(pending, message, id)
+app = FastAPI()
 
-        output = await async_wait(done.get)
-        message = json.dumps(output)
-        await websocket.send(message)
-
-async def listen(websocket, path):
-    async for message in websocket:
-        asyncio.get_event_loop().create_task(process(websocket, message, PENDING_QUEUE, DONE_QUEUE))
-
-async def main():
-    poolExecutor = ThreadPoolExecutor(max_workers=7)
-
+@app.on_event("startup")
+def startWorkers():
     schedulers = [
-        poolExecutor.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)
+        THREAD_POOL.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)
     ]
+
     workers = []
     archivers = []
+    for i in range(NUM_WORKERS):
+        workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
+        archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
-    for i in range(3):
-        workers.append(poolExecutor.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
-        archivers.append(poolExecutor.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, index=i, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
+    WORKERS['schedulers'] = schedulers
+    WORKERS['workers'] = workers
+    WORKERS['archivers'] = archivers
 
-    loop = asyncio.get_running_loop()
-    stop = loop.create_future()
-    loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
-    loop.add_signal_handler(signal.SIGINT, stop.set_result, None)
-
-    async with websockets.serve(listen, "127.0.0.1", 8000):
-        print("Websockets listening: 127.0.0.1:8000")
-        await stop
-
-    print("Shutdown")
+@app.on_event("shutdown")
+def stopWorkers():
     PENDING_QUEUE.put("STOP")
-    for work in workers:
+    for worker in range(NUM_WORKERS):
         WORKER_QUEUE.put("STOP")
-    for taskList in (("scheduler", schedulers), ("worker", workers), ("archiver", archivers)):
+    for taskList in (("scheduler", WORKERS['schedulers']), ("worker", WORKERS['workers']), ("archiver", WORKERS['archivers'])):
         for i in range(len(taskList[1])):
             print(f"Waiting for {taskList[0]} {i}")
             taskList[1][i].result()
     print("Pool shutdown")
-    poolExecutor.shutdown()
+    THREAD_POOL.shutdown()
 
+class AlgorithmEnum(str, Enum):
+    CGNE = "CGNE"
+    CGNR = "CGNR"
+
+class Task(BaseModel):
+    user: constr(to_lower=True, strip_whitespace=True)
+    algorithm: AlgorithmEnum
+    arrayG: list[float]
+    maxIterations: int
+    minError: float
+
+def get_id(task: Task) -> str:
+    hash = hashlib.sha1()
+    for item in [task.arrayG, task.algorithm, task.maxIterations, task.minError]:
+        hash.update(json.dumps(item).encode('ascii'))
+    return hash.hexdigest()
+
+def new_task(task: Task):
+    id = get_id(task)
+    PENDING_QUEUE.put({
+        'id': id,
+        'user': task.user,
+        'algorithm': task.algorithm,
+        'arrayG': task.arrayG,
+        'maxIterations': task.maxIterations,
+        'minError': task.minError
+    })
+
+@app.post("/tasks")
+async def post_task(task: Task, background_tasks: BackgroundTasks):
+    background_tasks.add_task(new_task, task)
+    return {"status": "success"}
+
+@app.get("/tasks/{user}")
+def list_tasks(user: constr(to_lower=True, strip_whitespace=True)):
+    tasks = []
+    userPath = os.path.join(METADATA_PATH, user)
+    if os.path.exists(userPath):  
+        for filename in os.listdir(userPath):
+            filePath = os.path.join(userPath, filename)
+            if not os.path.isfile(filePath):
+                continue
+            with open(filePath, 'r') as f:
+                task = json.load(f)
+                if not 'id' in task:
+                    continue
+                tasks.append(task)
+    return {"status": "success", "data": tasks}
+
+@app.get("/tasks/{user}/{id}.png")
+async def get_png_image(user: str, id: str):
+    print("user", user, "id", id)
+    return RedirectResponse(f"/tasks/images/{user}/{id}.png")
+
+@app.get("/tasks/{user}/{id}.json")
+async def get_json_metadata(user: str, id: str):
+    print("user", user, "id", id)
+    return RedirectResponse(f"/tasks/metadata/{user}/{id}.json")
+
+app.mount("/tasks", StaticFiles(directory=RESULTS_PATH), name="tasks-static")
+
+@app.get("/")
+async def root():
+    return RedirectResponse("/docs")
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    print("Please run with: WORKERS=10 uvicorn main:app")

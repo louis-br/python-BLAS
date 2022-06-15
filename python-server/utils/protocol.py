@@ -11,7 +11,7 @@ def write_message(sock: socket.socket, message: dict[str, bytes]):
         sock.sendall(packed)
         sock.sendall(v)
 
-def recv_all(sock: socket.socket, size: int):
+def recv_all(sock: socket.socket, size: int) -> bytes:
     b = b''
     bytesRead = 0
     offset = 0
