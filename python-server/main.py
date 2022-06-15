@@ -62,6 +62,10 @@ def stopWorkers():
             taskList[1][i].result()
     print("Pool shutdown")
     THREAD_POOL.shutdown()
+    if os.getenv("CLEAR", None) == "1":
+        import shutil
+        shutil.rmtree(IMAGES_PATH)
+        shutil.rmtree(METADATA_PATH)
 
 class AlgorithmEnum(str, Enum):
     CGNE = "CGNE"
