@@ -22,7 +22,6 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
         job = archiveQueue.get()
 
         if job == "STOP":
-            nextQueue.put(job)
             archiveQueue.task_done()
             return
 

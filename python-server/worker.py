@@ -30,7 +30,6 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
         job = workerQueue.get()
 
         if job == "STOP":
-            nextQueue.put(job)
             workerQueue.task_done()
             return
         

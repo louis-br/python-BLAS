@@ -43,7 +43,6 @@ def scheduler(pendingQueue: Queue, nextQueue: Queue, retryQueue=None, blasExecut
                 continue
 
         if next == "STOP":
-            nextQueue.put(next)
             currentQueue.task_done()
             return
 

@@ -27,7 +27,7 @@ else:
     NUM_WORKERS = int(NUM_WORKERS)
 
 WORKERS = {}
-THREAD_POOL = ThreadPoolExecutor(max_workers=NUM_WORKERS)
+THREAD_POOL = ThreadPoolExecutor(max_workers=NUM_WORKERS + 2)
 
 RESULTS_PATH = "./results/"
 METADATA_PATH = os.path.join(RESULTS_PATH, "metadata/")
@@ -36,36 +36,39 @@ IMAGES_PATH = os.path.join(RESULTS_PATH, "images/")
 app = FastAPI()
 
 @app.on_event("startup")
-def startWorkers():
-    schedulers = [
-        THREAD_POOL.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)
-    ]
-
+def start_workers():
+    schedulers = [THREAD_POOL.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)]
     workers = []
     archivers = []
+
     for i in range(NUM_WORKERS):
         workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
-        archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
+    archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
     WORKERS['schedulers'] = schedulers
     WORKERS['workers'] = workers
     WORKERS['archivers'] = archivers
 
+def stop_tasks(name: str, list: list, queue: Queue):
+    for i in range(len(list)):
+        queue.put("STOP")
+    for i in range(len(list)):
+        print(f"Waiting for {name}: #{i+1}/{len(list)}")
+        list[i].result()
+
 @app.on_event("shutdown")
-def stopWorkers():
-    PENDING_QUEUE.put("STOP")
-    for worker in range(NUM_WORKERS):
-        WORKER_QUEUE.put("STOP")
-    for taskList in (("scheduler", WORKERS['schedulers']), ("worker", WORKERS['workers']), ("archiver", WORKERS['archivers'])):
-        for i in range(len(taskList[1])):
-            print(f"Waiting for {taskList[0]} {i}")
-            taskList[1][i].result()
+def stop_workers():
+    stop_tasks("scheduler", WORKERS['schedulers'],  PENDING_QUEUE )
+    stop_tasks("worker",    WORKERS['workers'],     WORKER_QUEUE  )
+    stop_tasks("archiver",  WORKERS['archivers'],   ARCHIVER_QUEUE)
+
     print("Pool shutdown")
     THREAD_POOL.shutdown()
+
     if os.getenv("CLEAR", None) == "1":
         import shutil
-        shutil.rmtree(IMAGES_PATH)
-        shutil.rmtree(METADATA_PATH)
+        shutil.rmtree(IMAGES_PATH, ignore_errors=True)
+        shutil.rmtree(METADATA_PATH, ignore_errors=True)
 
 class AlgorithmEnum(str, Enum):
     CGNE = "CGNE"
