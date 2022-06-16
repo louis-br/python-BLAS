@@ -1,7 +1,6 @@
 from queue import Queue
 import matplotlib.pyplot as plt
 import numpy as np
-import base64
 import json
 import time
 import os
@@ -33,15 +32,13 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
         create_image(file, image)
         file = file.getvalue()
 
-        copy = job.copy()
+        #job['image'] = base64.b64encode(file).decode('ascii')
 
-        job['image'] = base64.b64encode(file).decode('ascii')
-
+        write_file(f"{imagesPath}{job['user']}/{job['id']}.png", file)
+        write_file(f"{dataPath}{job['user']}/{job['id']}.json", json.dumps(job), 'w')
+        
         nextQueue.put(job)
 
-        write_file(f"{imagesPath}{copy['user']}/{copy['id']}.png", file)
-        write_file(f"{dataPath}{copy['user']}/{copy['id']}.json", json.dumps(copy), 'w')
-        
         elapsed = time.perf_counter() - elapsed
         print(f'Archiver {index} completed execution in {elapsed} seconds')
         archiveQueue.task_done()
