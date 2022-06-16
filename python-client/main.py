@@ -17,7 +17,8 @@ def gain(g, N, S):
 
 def new_task(task):
     g = read_csv(task['file'])
-    gain(g, task['N'], task['S'])
+    if 'gain' in task and task['gain']:
+        gain(g, task['N'], task['S'])
     message = {
         'user': task['user'],
         'algorithm': task['algorithm'],

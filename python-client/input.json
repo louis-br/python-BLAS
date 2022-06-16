@@ -1,6 +1,6 @@
 [
-    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/G-1.csv",       "N": 64, "S": 794, "maxIterations": 500, "minError": 1e-6},
-    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/G-2.csv",       "N": 64, "S": 794, "maxIterations": 500, "minError": 1e-10},
-    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/g-30x30-1.csv", "N": 64, "S": 436, "maxIterations": 500, "minError": 1e-6},
-    {"user": "user", "algorithm": "CGNE", "file": "../utils/data/g-30x30-2.csv", "N": 64, "S": 436, "maxIterations": 500, "minError": 1e-6}
+    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/G-1.csv",       "N": 64, "S": 794, "gain": false, "maxIterations": 500, "minError": 1e-6},
+    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/G-2.csv",       "N": 64, "S": 794, "gain": true, "maxIterations": 500, "minError": 1e-10},
+    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/g-30x30-1.csv", "N": 64, "S": 436, "gain": true, "maxIterations": 500, "minError": 1e-6},
+    {"user": "user", "algorithm": "CGNE", "file": "../utils/data/g-30x30-2.csv", "N": 64, "S": 436, "gain": true, "maxIterations": 500, "minError": 1e-6}
 ]
