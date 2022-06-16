@@ -1,8 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import requests
+import signal
 import json
-import csv
 import math
+import csv
 import os
 
 def read_csv(filename):
@@ -31,7 +32,6 @@ def new_task(task):
 
 def download_file(url, path):
     response = requests.get(url).content
-    print(response[:100])
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'wb') as f:
         f.write(response)
@@ -53,6 +53,7 @@ def main():
             if not 'data' in tasks:
                 continue
             tasks = tasks['data']
+            print('\n' * 20, "\x1bc")
             for i in range(len(tasks)):
                 print(f"{i}:", tasks[i])
             print("Select image: ")
@@ -61,11 +62,14 @@ def main():
             try:
                 index = int(inputFuture.result(timeout=1))
                 id = tasks[index]['id']
+                print('\n' * 20, "\x1bc")
                 print(f"Downloading image: {id}.png")
                 download_file(f"{url}tasks/user/{id}.png", f"images/{id}.png")
                 download_file(f"{url}tasks/user/{id}.json", f"images/{id}.json")
                 print(f"Downloaded image: {id}.png")
+                input()
             except TimeoutError:
                 pass
 
+signal.signal(signal.SIGINT, lambda signum, frame: os._exit(0))
 main()
