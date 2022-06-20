@@ -16,7 +16,7 @@ def write_file(path, data, mode='wb'):
     with open(path, mode) as f:
         f.write(data)
 
-def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images/", dataPath="./results/metadata/", index=0): #f'{id}.png'
+def archiver(archiveQueue: Queue, nextQueue: Queue=None, imagesPath="./results/images/", dataPath="./results/metadata/", index=0):
     while True:
         job = archiveQueue.get()
 
@@ -37,7 +37,8 @@ def archiver(archiveQueue: Queue, nextQueue: Queue, imagesPath="./results/images
         write_file(f"{imagesPath}{job['user']}/{job['id']}.png", file)
         write_file(f"{dataPath}{job['user']}/{job['id']}.json", json.dumps(job), 'w')
         
-        nextQueue.put(job)
+        if nextQueue is not None:
+            nextQueue.put(job)
 
         elapsed = time.perf_counter() - elapsed
         print(f'Archiver {index} completed execution in {elapsed} seconds')

@@ -14,6 +14,7 @@ RUN conda install pandas --yes
 RUN conda install -c conda-forge fastapi --yes
 RUN conda install -c conda-forge uvicorn --yes
 RUN conda install -c conda-forge python-multipart --yes
+RUN conda install -c conda-forge psutil --yes
 #RUN conda install -c conda-forge websockets=10.3 --yes
 #--update-deps --force-reinstall
 RUN groupadd user && \

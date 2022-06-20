@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-from fastapi import BackgroundTasks, HTTPException, FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, constr
@@ -16,8 +16,9 @@ from archiver import archiver
 PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
 WORKER_RETRY_QUEUE = Queue()
+WORKER_DONE_QUEUE = Queue()
 ARCHIVER_QUEUE = Queue()
-DONE_QUEUE = Queue()
+#DONE_QUEUE = Queue()
 
 NUM_WORKERS = os.getenv("WORKERS", None)
 if NUM_WORKERS is None:
@@ -37,13 +38,13 @@ app = FastAPI()
 
 @app.on_event("startup")
 def start_workers():
-    schedulers = [THREAD_POOL.submit(scheduler, PENDING_QUEUE, WORKER_QUEUE, retryQueue=WORKER_RETRY_QUEUE)]
+    schedulers = [THREAD_POOL.submit(scheduler, NUM_WORKERS, PENDING_QUEUE, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, workerDoneQueue=WORKER_DONE_QUEUE)]
     workers = []
     archivers = []
 
     for i in range(NUM_WORKERS):
-        workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
-    archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, DONE_QUEUE, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
+        workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, WORKER_DONE_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
+    archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, nextQueue=None, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
     WORKERS['schedulers'] = schedulers
     WORKERS['workers'] = workers
@@ -53,7 +54,7 @@ def stop_tasks(name: str, list: list, queue: Queue):
     for i in range(len(list)):
         queue.put("STOP")
     for i in range(len(list)):
-        print(f"Waiting for {name}: #{i+1}/{len(list)}")
+        print(f"Waiting for {name}: {i+1}/{len(list)}")
         list[i].result()
 
 @app.on_event("shutdown")
@@ -94,6 +95,7 @@ def new_task(task: Task):
         'user': task.user,
         'algorithm': task.algorithm,
         'arrayG': task.arrayG,
+        'size': len(task.arrayG),
         'maxIterations': task.maxIterations,
         'minError': task.minError
     })

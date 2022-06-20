@@ -1,12 +1,11 @@
 from queue import Queue
+from config.models import MODELS
+from monitor import monitor
+from signal import SIGINT
+from threading import Timer
 import queue
 import subprocess
 import socket
-
-MODELS = {
-    50816: {'path': '../utils/data/H-1.float', 'rows': 50816, 'columns': 3600},
-    27904: {'path': '../utils/data/H-2.float', 'rows': 27904, 'columns': 900},
-}
 
 def get_free_port():
     s = socket.socket()
@@ -15,57 +14,100 @@ def get_free_port():
     s.close()
     return port
 
-def create_blas_process(executable, port, path, rows, columns):
-    return subprocess.Popen([
-        executable,
-        '--port', str(port),
-        '--file', str(path),
-        '--rows', str(rows),
-        '--columns', str(columns)
-        ])
+def create_process(processes: dict[int, dict], size: int, executable: str, port: int, path: str, rows: int, columns: int):
+    processes[size] = {
+        'process': subprocess.Popen([
+            executable,
+            '--port', str(port),
+            '--file', str(path),
+            '--rows', str(rows),
+            '--columns', str(columns)
+        ]),
+        'port': port
+    }
 
-def scheduler(pendingQueue: Queue, nextQueue: Queue, retryQueue=None, blasExecutable="../blas/out/blas"):
-    blasProcesses = {}
-    while True:
-        next = None
-        currentQueue = None
-        if retryQueue is not None and not retryQueue.empty():
-            try:
-                next = retryQueue.get_nowait()
-                currentQueue = retryQueue
-            except queue.Empty:
-                pass
-        if next is None:
-            try:
-                next = pendingQueue.get(timeout=1)
-                currentQueue = pendingQueue
-            except queue.Empty:
+def stop_process(processes: dict, size: int):
+    process = processes.pop(size, None)
+    if process is None:
+        return
+    process: subprocess.Popen = process['process']
+    process.send_signal(SIGINT)
+    Timer(10.0, process.kill).start()
+
+def process_finished_tasks(workerDoneQueue: Queue, doneQueue: Queue, busyModels: dict[int, int], latency: list=[]):
+    try:
+        for task in iter(workerDoneQueue.get_nowait, None):
+            if task is None:
+                break
+            size = task['size']
+            if size not in busyModels:
                 continue
+            busyModels[size] -= 1
+            if busyModels[size] <= 0:
+                del busyModels[size]
+            doneQueue.put(task)
+    except queue.Empty:
+        pass
 
-        if next == "STOP":
-            currentQueue.task_done()
+def fill_task_list(taskList: list, workers: int, queues: list[Queue]=[], timeout: float=1.0) -> bool: #, processes: dict={}
+    taskList.reverse()
+    queuesSize = len(queues)
+    for i in range(queuesSize):
+        q = queues[i]
+        while len(taskList) < workers:
+            try:
+                task = q.get(timeout=1) if i == queuesSize - 1 else q.get_nowait()
+                q.task_done()
+                if task is None:
+                    continue
+                if task == "STOP":
+                    return False
+                size = task['size']
+                if size not in MODELS:
+                    print(f'No model available for size: {size}')
+                    continue
+                taskList.append(task)
+            except queue.Empty:
+                break
+    taskList.reverse()
+    return True
+
+def scheduler(maxWorkers: int, pendingQueue: Queue, workerQueue: Queue, doneQueue: Queue, retryQueue: Queue, workerDoneQueue: Queue, blasExecutable: str="../blas/out/blas"):
+    processes = {}
+    busyModels = {}
+    taskList = []
+    workers = maxWorkers
+    while True:
+        upcoming = {}
+        process_finished_tasks(workerDoneQueue, doneQueue, busyModels)
+        
+        if not fill_task_list(taskList, workers, queues=[retryQueue, pendingQueue], timeout=1.0):
             return
 
-        size = len(next['arrayG'])
+        for task in taskList:
+            size = task['size']
+            if not size in processes:
+                upcoming[size] = 0
+            if size in upcoming:
+                upcoming[size] += 1
 
-        if size not in blasProcesses:
-            if size in MODELS:
-                model = MODELS[size]
-            else:
-                print(f'No model available for size: {size}')
-                currentQueue.task_done()
+        if len(taskList) > 0:
+            print(f'Scheduler monitor: {monitor(busyModels, upcoming.keys())}, busy: {busyModels}')
+
+        for size in upcoming:
+            model = MODELS[size]
+            create_process(processes, size, blasExecutable, get_free_port(), model['path'], model['rows'], model['columns'])
+
+        for i in range(min(workers, len(taskList))):
+            task = taskList.pop()
+            size = task['size']
+            if not size in processes:
+                retryQueue.put(task)
                 continue
+            task['port'] = processes[size]['port']
+            busyModels[size] = busyModels[size] + 1 if size in busyModels else 1
+            workerQueue.put(task)
 
-            port = get_free_port()
-            blasProcesses[size] = {
-                'process': create_blas_process(blasExecutable, port, model['path'], model['rows'], model['columns']),
-                'port': port
-            }
-                    
-        process = blasProcesses[size]
-        next['port'] = process['port']
-
-        print(f"Scheduling: {next['algorithm']}")
-        
-        nextQueue.put(next)
-        currentQueue.task_done()
+        for size in list(processes.keys()):
+            if not size in busyModels:
+                stop_process(processes, size)
