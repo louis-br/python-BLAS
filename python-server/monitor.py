@@ -12,7 +12,7 @@ def model_memory_limits(runningModels: list[int], upcomingModels: list[int], ava
     print(f"Memory available percent: {percent}")
     if percent < MIN_AVAILABLE_MEMORY_PERCENT or percent > MAX_AVAILABLE_MEMORY_PERCENT:
 
-        stop = available < MIN_AVAILABLE_MEMORY_PERCENT
+        stop = percent < MIN_AVAILABLE_MEMORY_PERCENT
 
         models = runningModels if stop else upcomingModels
         models = [MODELS[model] for model in models]

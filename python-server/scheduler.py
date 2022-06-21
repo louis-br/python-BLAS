@@ -86,28 +86,38 @@ def scheduler(maxWorkers: int, pendingQueue: Queue, workerQueue: Queue, doneQueu
 
         for task in taskList:
             size = task['size']
-            if not size in processes:
+            if size not in processes:
                 upcoming[size] = 0
             if size in upcoming:
                 upcoming[size] += 1
 
-        if len(taskList) > 0:
-            print(f'Scheduler monitor: {monitor(busyModels, upcoming.keys())}, busy: {busyModels}')
+        limits = monitor(busyModels.keys(), upcoming.keys())
+        workers = min(sum(busyModels.values()) - limits['cpu'], maxWorkers)
+        print(f"workers: {workers}")
+        for size, value in limits['memory'].items():
+            if value > 0:
+                upcoming.pop(size, None)
+
+        #if len(taskList) > 0:
+        print(f'Scheduler workers: {workers}, limits: {limits}, busy: {busyModels}')
 
         for size in upcoming:
-            model = MODELS[size]
-            create_process(processes, size, blasExecutable, get_free_port(), model['path'], model['rows'], model['columns'])
+            if size not in processes:
+                model = MODELS[size]
+                create_process(processes, size, blasExecutable, get_free_port(), model['path'], model['rows'], model['columns'])
 
         for i in range(min(workers, len(taskList))):
             task = taskList.pop()
             size = task['size']
-            if not size in processes:
+            if size not in upcoming:
                 retryQueue.put(task)
+                continue
+            if size not in processes:
                 continue
             task['port'] = processes[size]['port']
             busyModels[size] = busyModels[size] + 1 if size in busyModels else 1
             workerQueue.put(task)
 
         for size in list(processes.keys()):
-            if not size in busyModels:
+            if size not in busyModels:
                 stop_process(processes, size)
