@@ -25,7 +25,7 @@ def pack_message(msg):
         'minError': struct.pack('=f', msg['minError'])
     }
 
-def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0):
+def worker(workerQueue: Queue, nextQueues: list[Queue], retryQueue: Queue=None, index=0):
     while True:
         job = workerQueue.get()
 
@@ -38,6 +38,7 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
         port = job['port']
         arrayF = connect(pack_message(job), port)
         if arrayF is None:
+            print("ARRAYF IS NONE")
             if retryQueue is not None:
                 retryQueue.put(job)
             workerQueue.task_done()
@@ -49,5 +50,6 @@ def worker(workerQueue: Queue, nextQueue: Queue, retryQueue: Queue=None, index=0
         elapsed = time.perf_counter() - elapsed
         print(f"Worker {index} completed execution in {elapsed} seconds")
 
-        nextQueue.put(job)
+        for queue in nextQueues:
+            queue.put(job)
         workerQueue.task_done()

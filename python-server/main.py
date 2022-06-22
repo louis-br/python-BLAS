@@ -1,11 +1,13 @@
-from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, constr
 from enum import Enum
+
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
 import hashlib
+import time
 import json
 import os
 
@@ -13,9 +15,15 @@ from scheduler import scheduler
 from worker import worker
 from archiver import archiver
 
-PENDING_QUEUE = Queue()
+from config.models import MODELS
+
+SCHEDULER_QUEUES = {model: Queue() for model in MODELS}
+SCHEDULER_QUEUES['stop'] = Queue()
+SCHEDULER_QUEUES['retry'] = Queue()
+
+#PENDING_QUEUE = Queue()
 WORKER_QUEUE = Queue()
-WORKER_RETRY_QUEUE = Queue()
+WORKER_RETRY_QUEUE = SCHEDULER_QUEUES['retry']
 WORKER_DONE_QUEUE = Queue()
 ARCHIVER_QUEUE = Queue()
 #DONE_QUEUE = Queue()
@@ -38,12 +46,12 @@ app = FastAPI()
 
 @app.on_event("startup")
 def start_workers():
-    schedulers = [THREAD_POOL.submit(scheduler, NUM_WORKERS, PENDING_QUEUE, WORKER_QUEUE, ARCHIVER_QUEUE, retryQueue=WORKER_RETRY_QUEUE, workerDoneQueue=WORKER_DONE_QUEUE)]
+    schedulers = [THREAD_POOL.submit(scheduler, NUM_WORKERS, SCHEDULER_QUEUES, workerQueue=WORKER_QUEUE, workerDoneQueue=WORKER_DONE_QUEUE)]
     workers = []
     archivers = []
 
     for i in range(NUM_WORKERS):
-        workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, WORKER_DONE_QUEUE, retryQueue=WORKER_RETRY_QUEUE, index=i))
+        workers.append(THREAD_POOL.submit(worker, WORKER_QUEUE, nextQueues=[ARCHIVER_QUEUE, WORKER_DONE_QUEUE], retryQueue=WORKER_RETRY_QUEUE, index=i))
     archivers.append(THREAD_POOL.submit(archiver, ARCHIVER_QUEUE, nextQueue=None, imagesPath=IMAGES_PATH, dataPath=METADATA_PATH))
 
     WORKERS['schedulers'] = schedulers
@@ -59,7 +67,7 @@ def stop_tasks(name: str, list: list, queue: Queue):
 
 @app.on_event("shutdown")
 def stop_workers():
-    stop_tasks("scheduler", WORKERS['schedulers'],  PENDING_QUEUE )
+    stop_tasks("scheduler", WORKERS['schedulers'],  SCHEDULER_QUEUES['stop'] )
     stop_tasks("worker",    WORKERS['workers'],     WORKER_QUEUE  )
     stop_tasks("archiver",  WORKERS['archivers'],   ARCHIVER_QUEUE)
 
@@ -88,21 +96,28 @@ def get_id(task: Task) -> str:
         hash.update(json.dumps(item).encode('ascii'))
     return hash.hexdigest()
 
-def new_task(task: Task):
+def new_task(task: Task, size):
     id = get_id(task)
-    PENDING_QUEUE.put({
+    if size not in SCHEDULER_QUEUES:
+        print("Attempt to add a new task but size is no longer available. ")
+        return
+    SCHEDULER_QUEUES[size].put({
         'id': id,
         'user': task.user,
         'algorithm': task.algorithm,
         'arrayG': task.arrayG,
-        'size': len(task.arrayG),
+        'enqueuedTime': time.time(),
+        'size': size,
         'maxIterations': task.maxIterations,
         'minError': task.minError
     })
 
 @app.post("/tasks")
 async def post_task(task: Task, background_tasks: BackgroundTasks):
-    background_tasks.add_task(new_task, task)
+    size = len(task.arrayG)
+    if size not in SCHEDULER_QUEUES:
+        return {"status": "error", "message": f"No model available for size: {size}"}
+    background_tasks.add_task(new_task, task, size)
     return {"status": "success"}
 
 @app.get("/tasks/{user}")
@@ -115,10 +130,13 @@ def list_tasks(user: constr(to_lower=True, strip_whitespace=True)):
             if not os.path.isfile(filePath):
                 continue
             with open(filePath, 'r') as f:
-                task = json.load(f)
-                if not 'id' in task:
-                    continue
-                tasks.append(task)
+                try:
+                    task = json.load(f)
+                    if 'id' not in task:
+                        continue
+                    tasks.append(task)
+                except json.decoder.JSONDecodeError:
+                    pass
     return {"status": "success", "data": tasks}
 
 @app.get("/tasks/{user}/{id}.png")

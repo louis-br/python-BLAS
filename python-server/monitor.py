@@ -3,42 +3,48 @@ from config.models import MODELS
 import psutil
 
 MIN_AVAILABLE_MEMORY_PERCENT = 20.0
-MAX_AVAILABLE_MEMORY_PERCENT = 25.0
 MIN_AVAILABLE_CPU_CORES = 2
 
-def model_memory_limits(runningModels: list[int], upcomingModels: list[int], available: float, total: float):
+def model_memory_limits(runningModels: dict, upcomingModels: dict, available: float, total: float):
     limits = {}
     percent = (available/total)*100
-    print(f"Memory available percent: {percent}")
-    if percent < MIN_AVAILABLE_MEMORY_PERCENT or percent > MAX_AVAILABLE_MEMORY_PERCENT:
 
-        stop = percent < MIN_AVAILABLE_MEMORY_PERCENT
+    stop = percent < MIN_AVAILABLE_MEMORY_PERCENT
 
-        models = runningModels if stop else upcomingModels
-        models = [MODELS[model] for model in models]
-        models.sort(key=lambda model: model['initialMemoryUsage'], reverse=stop)
+    for size in upcomingModels:
+        runningModels[size] = 1
 
-        for model in models:
-            free = available + (1 if stop else -1)*model['initialMemoryUsage']
-            modelPercent = (free/total)*100
-            print(f"modelPercent: {modelPercent}, percent: {percent}")
-            if modelPercent < MIN_AVAILABLE_MEMORY_PERCENT or modelPercent > MAX_AVAILABLE_MEMORY_PERCENT:
-                limits[model['rows']] = (1 if stop else -1)
-                break
+    models = runningModels.keys() if stop else [size for size in upcomingModels if size not in runningModels]
+    models = [MODELS[size] for size in models if size in MODELS]
+    models.sort(key=lambda model: model['initialMemoryUsage'], reverse=stop)
+
+    freed = 0
+    sign = 1 if stop else -1
+    for model in models:
+        freed += sign*model['initialMemoryUsage']
+        modelPercent = ((available + freed)/total)*100
+        limits[model['rows']] = sign
+        if modelPercent < MIN_AVAILABLE_MEMORY_PERCENT:
+            sign = 0
 
     return limits
 
 def workers_core_limit(cpus: list[float]):
     availableCores = int(len(cpus) - sum(cpus)/100.00)
-    return MIN_AVAILABLE_CPU_CORES - availableCores 
+    return MIN_AVAILABLE_CPU_CORES - availableCores
 
-def monitor(runningModels: list[int]={}, upcomingModels: list[int]={}, averageTimeQueue: Queue=None) -> dict[str, int]:
+def monitor(runningModels: dict={}, upcomingModels: dict={}, averageTimeQueue: Queue=None) -> dict[str, int]:
     virtualMem = psutil.virtual_memory()
-    memoryLimits = model_memory_limits(runningModels, upcomingModels, virtualMem.available, virtualMem.total)
+    total = virtualMem.total
+    available = virtualMem.available
+    percent = int((available/total)*100)
+    memoryLimits = model_memory_limits(runningModels.copy(), upcomingModels, available, total)
 
     coreLimit = workers_core_limit(psutil.cpu_percent(percpu=True))
 
     return {
+        'free': percent,
+        'low': percent < MIN_AVAILABLE_MEMORY_PERCENT,
         'memory': memoryLimits,
         'cpu': coreLimit
     }
