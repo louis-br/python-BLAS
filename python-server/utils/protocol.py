@@ -26,14 +26,22 @@ def recv_all(sock: socket.socket, size: int) -> bytes:
 def unpack_recv(sock: socket.socket, format: str) -> tuple:
     size = struct.calcsize(format)
     value = recv_all(sock, size)
-    return struct.unpack(format, value)
+    if value is None:
+        return None
+    return struct.unpack(format, value)[0]
 
 def read_message(sock: socket.socket) -> dict[str, bytes]:
     message = {}
-    maxFields = unpack_recv(sock, "=i")[0]
+    maxFields = unpack_recv(sock, "=i")
+    if maxFields is None:
+        return None
     for i in range(maxFields):
-        fieldNameSize = unpack_recv(sock, "=i")[0]
-        fieldName = unpack_recv(sock, "=%ds" % fieldNameSize)[0]
-        fieldSize = unpack_recv(sock, "=i")[0]
+        fieldNameSize = unpack_recv(sock, "=i")
+        if fieldNameSize is None:
+            return None
+        fieldName = unpack_recv(sock, "=%ds" % fieldNameSize)
+        fieldSize = unpack_recv(sock, "=i")
+        if fieldName is None or fieldNameSize is None:
+            return None
         message[fieldName.decode('ascii')] = recv_all(sock, fieldSize)
     return message

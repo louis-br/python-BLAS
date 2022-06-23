@@ -12,7 +12,10 @@ def connect(msg, port):
             print(f'socket error: {err}')
             return None
         protocol.write_message(sock, msg)
-        f = protocol.read_message(sock)['arrayF']
+        f = protocol.read_message(sock)
+        if f is None or 'arrayF' not in f:
+            return None
+        f = f['arrayF']
         f = struct.unpack('=%sf' % int(len(f)//4), f)
     return f
 
@@ -33,12 +36,11 @@ def worker(workerQueue: Queue, nextQueues: list[Queue], retryQueue: Queue=None, 
             workerQueue.task_done()
             return
         
-        elapsed = time.perf_counter()
+        job['startTime'] = time.time()
 
         port = job['port']
         arrayF = connect(pack_message(job), port)
         if arrayF is None:
-            print("ARRAYF IS NONE")
             if retryQueue is not None:
                 retryQueue.put(job)
             workerQueue.task_done()
@@ -46,9 +48,11 @@ def worker(workerQueue: Queue, nextQueues: list[Queue], retryQueue: Queue=None, 
         job['arrayF'] = arrayF
         job.pop('arrayG', None)
         job.pop('port', None)
+
+        job['endTime'] = time.time()
+        job['elapsedTime'] = job['endTime'] - job['startTime']
         
-        elapsed = time.perf_counter() - elapsed
-        print(f"Worker {index} completed execution in {elapsed} seconds")
+        print(f"Worker {index} completed execution in {job['elapsedTime']} seconds")
 
         for queue in nextQueues:
             queue.put(job)

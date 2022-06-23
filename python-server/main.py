@@ -106,7 +106,7 @@ def new_task(task: Task, size):
         'user': task.user,
         'algorithm': task.algorithm,
         'arrayG': task.arrayG,
-        'enqueuedTime': time.time(),
+        'queueTime': time.time(),
         'size': size,
         'maxIterations': task.maxIterations,
         'minError': task.minError

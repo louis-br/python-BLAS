@@ -64,7 +64,7 @@ def fill_task_list(taskList: list, workers: int, queues: dict) -> bool:
             q.task_done()
             if task == "STOP":
                 return False
-            time = task['enqueuedTime']
+            time = task['queueTime']
             times[key] = time
             queueDict['time'] = time
             taskList.append(task)
