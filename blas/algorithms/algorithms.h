@@ -1,3 +1,4 @@
+#include <math.h>
 #include "mkl.h"
 
 #ifndef ALGORITHMS_H

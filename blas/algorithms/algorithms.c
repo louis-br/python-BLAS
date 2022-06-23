@@ -1,14 +1,12 @@
 #include "algorithms.h"
 
 float algorithm_error(int rSize, float *r, float *old_r) {
-    return (cblas_snrm2(rSize, r, 1) - cblas_snrm2(rSize, old_r, 1));
+    return fabsf(cblas_snrm2(rSize, r, 1) - cblas_snrm2(rSize, old_r, 1));
 }
 
 int cgne(int maxIterations, float minError, float *H, int Hrows, int Hcols, float *f, float *old_r) {
     float *r = (float *)calloc(Hrows, sizeof(float));
     float *p = (float *)calloc(Hcols, sizeof(float));
-
-    minError = -minError;
 
     //          N      X,     incX, Y, incY
     cblas_scopy(Hrows, old_r, 1,    r, 1);
@@ -30,7 +28,7 @@ int cgne(int maxIterations, float minError, float *H, int Hrows, int Hcols, floa
         //          Layout,        TransA,       M,     N,     alpha,   A, lda,   X, incX, beta, Y, incY
         cblas_sgemv(CblasRowMajor, CblasNoTrans, Hrows, Hcols, -alpha,  H, Hcols, p, 1,    1.0F, r, 1);
 
-        if (algorithm_error(Hrows, r, old_r) > minError) {
+        if (algorithm_error(Hrows, r, old_r) < minError) {
             break;
         }
         
@@ -50,8 +48,6 @@ int cgnr(int maxIterations, float minError, float *H, int Hrows, int Hcols, floa
     float *p = (float *)calloc(Hcols, sizeof(float));
     float *z = (float *)calloc(Hcols, sizeof(float));
     float *w = (float *)calloc(Hrows, sizeof(float));
-
-    minError = -minError;
 
     //          N      X,     incX, Y, incY
     cblas_scopy(Hrows, old_r, 1,    r, 1);
@@ -79,7 +75,7 @@ int cgnr(int maxIterations, float minError, float *H, int Hrows, int Hcols, floa
         cblas_saxpy(Hcols, alpha,  p, 1,    f, 1);
         cblas_saxpy(Hrows, -alpha, w, 1,    r, 1);
 
-        if (algorithm_error(Hrows, r, old_r) > minError) {
+        if (algorithm_error(Hrows, r, old_r) < minError) {
             break;
         }
 
