@@ -37,32 +37,25 @@ void process(connection_t *connection) {
     };
 
     read_message(&streams, &input);
-    //printf("[%i] Command: %s algorithmIndex: %i\n", tid, input.command, input.algorithmType);
     
     float *f = (float *)calloc(Hcols, sizeof(float));
-
     double time = omp_get_wtime();
 
-    printf("[%i] [%i] %s begin r[%i]: %e\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE", 10000, r[10000]);
+    printf("[%i] [%i] %s begin\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE");
 
-    int iterations = 0;
-    if (input.algorithmType == 1) {
-        iterations = cgnr(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
-    }
-    else {
-        iterations = cgne(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
-    }
-    
-    printf("[%i] [%i] %s end: iterations %i, error: %f: %lf s\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE", iterations, input.minError, omp_get_wtime() - time);
+    int iterations = input.algorithmType == 1 ?
+                     cgnr(input.maxIterations, input.minError, H, Hrows, Hcols, f, r) :
+                     cgne(input.maxIterations, input.minError, H, Hrows, Hcols, f, r);
+        
+    printf("[%i] [%i] %s end: iterations %i: %lf s\n", Hrows, tid, input.algorithmType == 1 ? "CGNR" : "CGNE", iterations, omp_get_wtime() - time);
 
     output_message_t output = {
         .arrayF = f,
-        .arrayFsize = Hcols
+        .arrayFsize = Hcols,
+        .iterations = iterations
     };
 
     write_message(&streams, &output);
-
-    //printf("[%i] wrote %i\n", tid, write(connection->sock, f, Hcols*sizeof(float)));
 
     free(r);
     free(f);

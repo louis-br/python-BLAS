@@ -30,6 +30,7 @@ typedef struct
 {
     float* arrayF;
 	int arrayFsize;
+    int iterations;
 } output_message_t;
 
 int create_streams(int sock, streams_t *streams);

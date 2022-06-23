@@ -123,7 +123,8 @@ int write_message(streams_t *streams, output_message_t *message) {
     int arrayFsize = message->arrayFsize;
 
     field_t fields[] = {
-        {arrayFsize*sizeof(float),  arrayFsize*sizeof(float),   "arrayF",           (char *)message->arrayF        }
+        {arrayFsize*sizeof(float),  arrayFsize*sizeof(float),   "arrayF",           (char *)message->arrayF        },
+        {sizeof(int),               sizeof(int),                "iterations",       (char *)&message->iterations   }
     };
 
     return write_fields(streams->write, fields, sizeof(fields)/sizeof(field_t));

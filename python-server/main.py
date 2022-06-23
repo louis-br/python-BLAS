@@ -141,12 +141,10 @@ def list_tasks(user: constr(to_lower=True, strip_whitespace=True)):
 
 @app.get("/tasks/{user}/{id}.png")
 async def get_png_image(user: str, id: str):
-    print("user", user, "id", id)
     return RedirectResponse(f"/tasks/images/{user}/{id}.png")
 
 @app.get("/tasks/{user}/{id}.json")
 async def get_json_metadata(user: str, id: str):
-    print("user", user, "id", id)
     return RedirectResponse(f"/tasks/metadata/{user}/{id}.json")
 
 app.mount("/tasks", StaticFiles(directory=RESULTS_PATH), name="tasks-static")

@@ -133,7 +133,7 @@ def scheduler(maxWorkers: int, pendingQueues: dict, workerQueue: Queue, workerDo
         for size, value in limits['memory'].items():
             if value > 0:
                 upcoming.pop(size, None)
-            set_queues_enabled([pendingQueues, retryQueues], size, False if value > 0 else True)
+                set_queues_enabled([pendingQueues, retryQueues], size, False)
 
         print(f'Scheduler tasks: {len(taskList)}, workers: {workers}, busy: {busy}, pending:{pending}, limits: {limits}')
 

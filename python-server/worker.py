@@ -12,12 +12,15 @@ def connect(msg, port):
             print(f'socket error: {err}')
             return None
         protocol.write_message(sock, msg)
-        f = protocol.read_message(sock)
-        if f is None or 'arrayF' not in f:
+        output = protocol.read_message(sock)
+        if output is None:
             return None
-        f = f['arrayF']
-        f = struct.unpack('=%sf' % int(len(f)//4), f)
-    return f
+        if 'arrayF' in output:
+            arrayF = output['arrayF']
+            output['arrayF'] = struct.unpack('=%sf' % int(len(arrayF)//4), arrayF)
+        if 'iterations' in output:
+            output['iterations'] = struct.unpack('=i', output['iterations'])[0]
+    return output
 
 def pack_message(msg):
     arrayG = msg['arrayG']
@@ -39,15 +42,18 @@ def worker(workerQueue: Queue, nextQueues: list[Queue], retryQueue: Queue=None, 
         job['startTime'] = time.time()
 
         port = job['port']
-        arrayF = connect(pack_message(job), port)
-        if arrayF is None:
+        output = connect(pack_message(job), port)
+        if output is None or 'arrayF' not in output:
             if retryQueue is not None:
                 retryQueue.put(job)
             workerQueue.task_done()
             continue
-        job['arrayF'] = arrayF
+        job['arrayF'] = output['arrayF']
         job.pop('arrayG', None)
         job.pop('port', None)
+
+        if 'iterations' in output:
+            job['iterations'] = output['iterations']
 
         job['endTime'] = time.time()
         job['elapsedTime'] = job['endTime'] - job['startTime']
