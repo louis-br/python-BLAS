@@ -6,6 +6,10 @@ import math
 import csv
 import os
 
+INPUT_FILE = os.getenv("INPUT", "input.json")
+USER = os.getenv("USER", "user")
+IMAGES_PATH = os.getenv("IMAGES_PATH", "./images")
+
 def read_csv(filename):
     with open(filename, newline='') as f_input:
         return [float(row[0]) for row in csv.reader(f_input)]
@@ -39,7 +43,7 @@ def download_file(url, path):
 def main():
     url = "http://localhost:8000/"
     with ThreadPoolExecutor() as executor:
-        with open("input.json", encoding='utf8') as f:
+        with open(INPUT_FILE, encoding='utf8') as f:
             tasks = json.load(f)
             for task in tasks:
                 executor.submit(new_task, task)
@@ -48,24 +52,43 @@ def main():
     with ThreadPoolExecutor(max_workers=1) as executor:
         inputFuture = None
         while True:
-            tasks = requests.get(f"{url}tasks/user")
+            tasks = requests.get(f"{url}tasks/{USER}")
             tasks = tasks.json()
             if not 'data' in tasks:
                 continue
             tasks = tasks['data']
             print('\n' * 20, "\x1bc")
+            print("c: Clear local images folder")
             for i in range(len(tasks)):
                 print(f"{i}:", tasks[i])
             print("Select image: ")
             if inputFuture is None or inputFuture.done():
                 inputFuture = executor.submit(input)
             try:
-                index = int(inputFuture.result(timeout=1))
-                id = tasks[index]['id']
+                key = inputFuture.result(timeout=1)
+                if key == "c":
+                    import shutil
+                    shutil.rmtree(IMAGES_PATH, ignore_errors=True)
+                    print('\n' * 20, "\x1bc")
+                    print("Cleared")
+                    input()
+                    continue
+                try:
+                    index = int(key)
+                    print(index)
+                except ValueError:
+                    input()
+                    pass
+                if index < 0 or index >= len(tasks):
+                    continue
+                task = tasks[index]
+                id = task['id']
                 print('\n' * 20, "\x1bc")
+                print(task)
+                print()
                 print(f"Downloading image: {id}.png")
-                download_file(f"{url}tasks/user/{id}.png", f"images/{id}.png")
-                download_file(f"{url}tasks/user/{id}.json", f"images/{id}.json")
+                download_file(f"{url}tasks/{USER}/{id}.png", os.path.join(IMAGES_PATH, f"{id}.png"))
+                download_file(f"{url}tasks/{USER}/{id}.json", os.path.join(IMAGES_PATH, f"{id}.json"))
                 print(f"Downloaded image: {id}.png")
                 input()
             except TimeoutError:
