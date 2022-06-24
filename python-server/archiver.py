@@ -15,7 +15,7 @@ def get_img_size(img):
 
 def create_image(path, img, size):
     img = np.reshape(img, (size, size)).transpose()
-    return plt.imsave(path, img, cmap="gray")
+    return plt.imsave(path, abs(img), cmap="gray")
 
 def write_file(path, data, mode='wb'):
     os.makedirs(os.path.dirname(path), exist_ok=True)
