@@ -8,7 +8,7 @@ import csv
 import os
 
 INPUT_FILE = os.getenv("INPUT", "input.json")
-USER = os.getenv("USER", "user")
+USER = os.getenv("CLIENT_USER", "user")
 IMAGES_PATH = os.getenv("IMAGES_PATH", "./images")
 
 def read_csv(filename):
