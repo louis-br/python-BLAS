@@ -87,6 +87,7 @@ class AlgorithmEnum(str, Enum):
     CGNR = "CGNR"
 
 class Task(BaseModel):
+    name: constr(strip_whitespace=True)
     user: constr(to_lower=True, strip_whitespace=True)
     algorithm: AlgorithmEnum
     arrayG: list[float]
@@ -106,6 +107,7 @@ def new_task(task: Task, size):
         return
     SCHEDULER_QUEUES[size].put({
         'id': id,
+        'name': task.name,
         'user': task.user,
         'algorithm': task.algorithm,
         'arrayG': task.arrayG,

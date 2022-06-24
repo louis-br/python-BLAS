@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from pathlib import Path
 import requests
 import signal
 import json
@@ -20,11 +21,16 @@ def gain(g, N, S):
             y = 100 + (1/20) * l * math.sqrt(l)
             g[l + c*S] = g[l + c*S] * y
 
+def generate_name(task):
+    return f"{Path(task['file']).stem}_{task['algorithm']}_err{task['minError']:.0E}_max{task['maxIterations']}{'_g' if 'gain' in task else ''}"
+
 def new_task(task):
+    name = task['name'] if 'name' in task else generate_name(task)
     g = read_csv(task['file'])
     if 'gain' in task and task['gain']:
         gain(g, task['N'], task['S'])
     message = {
+        'name': name,
         'user': task['user'],
         'algorithm': task['algorithm'],
         'arrayG': g,
@@ -60,7 +66,8 @@ def main():
             print('\n' * 20, "\x1bc")
             print("c: Clear local images folder")
             for i in range(len(tasks)):
-                print(f"{i}:", tasks[i])
+                task = tasks[i]
+                print(f"{i}:", task['name'] if 'name' in task else task)
             print("Select image: ")
             if inputFuture is None or inputFuture.done():
                 inputFuture = executor.submit(input)
@@ -86,10 +93,11 @@ def main():
                 print('\n' * 20, "\x1bc")
                 print(task)
                 print()
-                print(f"Downloading image: {id}.png")
-                download_file(f"{url}tasks/{USER}/{id}.png", os.path.join(IMAGES_PATH, f"{id}.png"))
-                download_file(f"{url}tasks/{USER}/{id}.json", os.path.join(IMAGES_PATH, f"{id}.json"))
-                print(f"Downloaded image: {id}.png")
+                filename = task['name'] if 'name' in task else id
+                print(f"Downloading image: {filename}.png")
+                download_file(f"{url}tasks/{USER}/{id}.png", os.path.join(IMAGES_PATH, f"{filename}.png"))
+                download_file(f"{url}tasks/{USER}/{id}.json", os.path.join(IMAGES_PATH, f"{filename}.json"))
+                print(f"Downloaded image: {filename}.png")
                 input()
             except TimeoutError:
                 pass
