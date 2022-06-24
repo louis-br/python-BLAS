@@ -140,7 +140,8 @@ def scheduler(maxWorkers: int, pendingQueues: dict, workerQueue: Queue, workerDo
         for size in upcoming:
             set_queues_enabled([pendingQueues, retryQueues], size, True)
 
-        for size, process in processes.items():
+        for size in list(processes.keys()):
+            process = processes[size]
             if process['process'].poll() is not None:
                 processes.pop(size, None)
 
