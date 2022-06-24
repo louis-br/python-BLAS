@@ -22,7 +22,7 @@ def gain(g, N, S):
             g[l + c*S] = g[l + c*S] * y
 
 def generate_name(task):
-    return f"{Path(task['file']).stem}_{task['algorithm']}_err{task['minError']:.0E}_max{task['maxIterations']}{'_g' if 'gain' in task else ''}"
+    return f"{Path(task['file']).stem}_{task['algorithm']}_err{task['minError']:.0E}_max{task['maxIterations']}{'_g' if 'gain' in task and task['gain'] else ''}"
 
 def new_task(task):
     name = task['name'] if 'name' in task else generate_name(task)

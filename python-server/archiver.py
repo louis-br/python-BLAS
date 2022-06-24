@@ -47,7 +47,7 @@ def archiver(archiveQueue: Queue, nextQueue: Queue=None, imagesPath="./results/i
         job['imageSize'] = f'{size}x{size}px'
 
         write_file(f"{imagesPath}{job['user']}/{job['id']}.png", file)
-        write_file(f"{dataPath}{job['user']}/{job['id']}.json", json.dumps(job), 'w')
+        write_file(f"{dataPath}{job['user']}/{job['id']}.json", json.dumps(job, indent=4), 'w')
         
         if nextQueue is not None:
             nextQueue.put(job)
