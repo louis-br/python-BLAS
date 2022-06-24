@@ -93,15 +93,17 @@ int main(int argc, char **argv) {
         H = (float *)calloc(Hsize, sizeof(float));
 
         double time = omp_get_wtime();
-        import_bin(options.file, H, &Hsize);
-        printf("Loaded H in %lf s\n", omp_get_wtime() - time);
 
-        if (Hsize != Hrows*Hcols) {
-            printf("wrong size for H: got %i, expected: %i\n", Hsize, Hrows*Hcols);
+        int loaded = import_bin(options.file, H, &Hsize);
+
+        if (Hsize != Hrows*Hcols || loaded <= 0) {
+            printf("Failed to load H: got %i, expected: %i\n", Hsize, Hrows*Hcols);
             close(sock);
             free(H);
             exit(EXIT_FAILURE);
         }
+
+        printf("Loaded H in %lf s\n", omp_get_wtime() - time);
     }
 
     #pragma omp parallel default(none) shared(sock) shared(H) shared(Hrows) shared(Hcols) shared(SERVER_RUNNING)
