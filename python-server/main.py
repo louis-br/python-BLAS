@@ -42,6 +42,9 @@ RESULTS_PATH = "./results/"
 METADATA_PATH = os.path.join(RESULTS_PATH, "metadata/")
 IMAGES_PATH = os.path.join(RESULTS_PATH, "images/")
 
+for path in [RESULTS_PATH, METADATA_PATH, IMAGES_PATH]:
+    os.makedirs(path, exist_ok=True)
+
 app = FastAPI()
 
 @app.on_event("startup")
