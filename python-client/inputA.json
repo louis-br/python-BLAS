@@ -1,4 +1,6 @@
 [
+    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/G-1.csv",       "N": 64, "S": 794, "gain": true,  "maxIterations": 500, "minError": 1e-4},
+    {"user": "user", "algorithm": "CGNR", "file": "../utils/data/g-30x30-1.csv", "N": 64, "S": 436, "gain": true,  "maxIterations": 500, "minError": 1e-4},
     {"user": "user", "algorithm": "CGNR", "file": "../utils/data/A-60x60-1.csv", "N": 64, "S": 794, "gain": true,  "maxIterations": 500, "minError": 1e-4},
     {"user": "user", "algorithm": "CGNR", "file": "../utils/data/A-30x30-1.csv", "N": 64, "S": 436, "gain": true,  "maxIterations": 500, "minError": 1e-4}
 ]
